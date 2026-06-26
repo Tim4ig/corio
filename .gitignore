@@ -1,0 +1,43 @@
+# Build output
+/build/
+docs
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# IDE
+.idea/
+.vscode/
+*.user
+*.suo
+*.sln.docstates
+.vs/
+
+# CLion / JetBrains
+cmake-build-*/
+
+# clangd / LSP
+.cache/
+
+# Binaries
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+*.out
+*.app
+
+# macOS
+.DS_Store
+
+# Conan
+.conan/
+conanbuildinfo.*
+conaninfo.txt
+graph_info.json
