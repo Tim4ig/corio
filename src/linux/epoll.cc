@@ -137,7 +137,7 @@ void EPoller::rem(int fd) {
 
 void EPoller::wake() noexcept {
   constexpr uint64_t kVal = 1;
-  (void)write(wakeup_fd_, &kVal, sizeof(kVal));
+  [[maybe_unused]] auto r = write(wakeup_fd_, &kVal, sizeof(kVal));
 }
 
 std::vector<IOToken> EPoller::poll(std::chrono::milliseconds timeout) {
@@ -162,7 +162,7 @@ std::vector<IOToken> EPoller::poll(std::chrono::milliseconds timeout) {
     const auto fd = data.fd;
     if (fd == wakeup_fd_) {
       uint64_t val = 0;
-      (void)read(wakeup_fd_, &val, sizeof(val));
+      [[maybe_unused]] auto r = read(wakeup_fd_, &val, sizeof(val));
       continue;
     }
     if (const auto it = tokens_.find(fd); it != tokens_.end()) {
