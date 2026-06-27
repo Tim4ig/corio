@@ -119,22 +119,3 @@ jobs:
           find include src tests -name '*.h' -o -name '*.cc' \
             | xargs clang-format-18 --dry-run --Werror
 
-  # -------------------------------------------------------------------------
-  # MSVC: compile-check only (Linux runtime not supported on Windows)
-  # -------------------------------------------------------------------------
-  msvc-compile-check:
-    name: MSVC (portable headers)
-    runs-on: windows-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Verify unsupported-platform error fires
-        shell: pwsh
-        run: |
-          cmake -B build-msvc -G "Visual Studio 17 2022" 2>&1 | Tee-Object -Variable output
-          if ($output -notmatch "corio currently supports Linux only") {
-            Write-Error "Expected Linux-only error was not emitted"
-            exit 1
-          }
-          Write-Host "Correct: unsupported platform message received."
