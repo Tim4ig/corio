@@ -1,7 +1,6 @@
 #include "helpers.h"
 
 #include <corio/context_var.h>
-#include <corio/gather.h>
 #include <corio/task.h>
 #include <corio/timer.h>
 
@@ -12,7 +11,9 @@
 using namespace corio;
 using namespace std::chrono_literals;
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static ContextVar<int>         cv_int;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static ContextVar<std::string> cv_str;
 
 TEST_CASE("ContextVar returns nullopt when not set", "[context_var]") {

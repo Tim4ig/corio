@@ -20,12 +20,12 @@ static Generator<int> fibonacci() {
     }
 }
 
-static Generator<int> finite(int n) {
-    for (int i = 0; i < n; ++i) { co_yield i; }
+static Generator<int> finite(int count) {
+    for (int i = 0; i < count; ++i) { co_yield i; }
 }
 
-static Generator<int> throws_after(int n) {
-    for (int i = 0; i < n; ++i) { co_yield i; }
+static Generator<int> throws_after(int count) {
+    for (int i = 0; i < count; ++i) { co_yield i; }
     throw std::runtime_error("generator error");
 }
 

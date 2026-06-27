@@ -57,14 +57,14 @@ TEST_CASE("watch_read from wrong thread throws", "[io_context]") {
     auto ctx = make_io_context();
     std::exception_ptr exc;
 
-    std::thread t{[&] {
+    std::thread th{[&] {
         try {
             ctx.watch_read(0, {});
         } catch (...) {
             exc = std::current_exception();
         }
     }};
-    t.join();
+    th.join();
 
     REQUIRE(exc != nullptr);
     CHECK_THROWS_AS(std::rethrow_exception(exc), std::logic_error);
@@ -81,13 +81,13 @@ TEST_CASE("post() from another thread wakes the event loop", "[io_context]") {
 
     ctx.post(waiter.native_handle());
 
-    std::thread t{[&] {
+    std::thread th{[&] {
         std::this_thread::sleep_for(std::chrono::milliseconds{20});
         ctx.post(stopper.native_handle());
     }};
 
     ctx.run();
-    t.join();
+    th.join();
 
     CHECK(task_ran);
 }

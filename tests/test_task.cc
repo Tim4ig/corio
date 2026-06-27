@@ -21,12 +21,13 @@ static Task<int> chain(int val) {
     co_return result * 2;
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 static Task<> deep_chain(int depth, int& counter) {
     if (depth == 0) {
         ++counter;
         co_return;
     }
-    co_await deep_chain(depth - 1, counter);
+    co_await deep_chain(depth - 1, counter); // NOLINT(misc-no-recursion)
 }
 
 TEST_CASE("Task<void> completes", "[task]") {
@@ -67,8 +68,8 @@ TEST_CASE("Deep task chain does not stack overflow (symmetric transfer)", "[task
 }
 
 TEST_CASE("Task move semantics: moved-from task is empty", "[task]") {
-    auto a = return_value(1);
-    auto b = std::move(a);
-    CHECK(a.done());
-    CHECK_FALSE(b.done());
+    auto task_src = return_value(1);
+    auto task_dst = std::move(task_src);
+    CHECK(task_src.done()); // NOLINT(bugprone-use-after-move) -- verifies moved-from state
+    CHECK_FALSE(task_dst.done());
 }

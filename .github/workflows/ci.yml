@@ -95,22 +95,22 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y --no-install-recommends \
-            gcc-14 g++-14 ninja-build cmake \
+            clang-18 ninja-build cmake \
             clang-tidy-18 clang-format-18
 
       - name: Configure (for compile_commands.json)
         env:
-          CC:  gcc-14
-          CXX: g++-14
-        run: cmake --preset debug-gcc
+          CC:  clang-18
+          CXX: clang++-18
+        run: cmake --preset debug-clang
 
       - name: Build (compile_commands must be populated)
-        run: cmake --build --preset debug-gcc -j$(nproc)
+        run: cmake --build --preset debug-clang -j$(nproc)
 
       - name: clang-tidy
         run: |
           run-clang-tidy-18 \
-            -p build/debug-gcc \
+            -p build/debug-clang \
             -warnings-as-errors='*' \
             $(find src tests -name '*.cc')
 

@@ -53,14 +53,14 @@ TEST_CASE("multiple independent tasks each sleep their own duration", "[timer]")
     std::chrono::milliseconds durations[3]{};
 
     auto fn = [&]() -> Task<> {
-        auto t = [](std::chrono::milliseconds dur,
-                    std::chrono::milliseconds& out) -> Task<> {
-            auto s = Clock::now();
+        auto sleep_fn = [](std::chrono::milliseconds dur,
+                           std::chrono::milliseconds& out) -> Task<> {
+            auto start_tp = Clock::now();
             co_await async_sleep(dur);
-            out = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - s);
+            out = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start_tp);
             co_return;
         };
-        co_await gather(t(10ms, durations[0]), t(20ms, durations[1]), t(30ms, durations[2]));
+        co_await gather(sleep_fn(10ms, durations[0]), sleep_fn(20ms, durations[1]), sleep_fn(30ms, durations[2]));
         co_return;
     };
     test::run_task<void>(fn());

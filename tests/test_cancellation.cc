@@ -83,13 +83,13 @@ TEST_CASE("request_cancellation from another thread wakes all waiters", "[cancel
     ctx2.post(w2.native_handle());
     ctx2.post(stopper.native_handle());
 
-    std::thread t{[&] {
+    std::thread th{[&] {
         std::this_thread::sleep_for(20ms);
         src2.request_cancellation();
     }};
 
     ctx2.run();
-    t.join();
+    th.join();
 
     CHECK(woken2 == 2);
 }
