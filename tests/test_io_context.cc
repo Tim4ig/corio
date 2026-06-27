@@ -10,14 +10,14 @@ using namespace corio;
 
 TEST_CASE("post() schedules a coroutine and run() executes it", "[io_context]") {
   auto ctx = make_io_context();
-  bool ran = false;
+  auto ran = false;
 
   auto task_fn = [&]() -> Task<> {
     ran = true;
     ctx.stop();
     co_return;
   };
-  auto task = task_fn();
+  const auto task = task_fn();
   ctx.post(task.native_handle());
   ctx.run();
 
@@ -26,7 +26,7 @@ TEST_CASE("post() schedules a coroutine and run() executes it", "[io_context]") 
 
 TEST_CASE("stop() terminates run() even with tasks remaining", "[io_context]") {
   auto ctx = make_io_context();
-  int count = 0;
+  auto count = 0;
 
   auto stopper_fn = [&]() -> Task<> {
     ++count;
@@ -37,8 +37,8 @@ TEST_CASE("stop() terminates run() even with tasks remaining", "[io_context]") {
     ++count;
     co_return;
   };
-  auto stopper = stopper_fn();
-  auto never = never_fn();
+  const auto stopper = stopper_fn();
+  const auto never = never_fn();
 
   ctx.post(stopper.native_handle());
   ctx.post(never.native_handle());
@@ -56,7 +56,7 @@ TEST_CASE("current() returns running context inside run()", "[io_context]") {
     ctx.stop();
     co_return;
   };
-  auto task = task_fn();
+  const auto task = task_fn();
   ctx.post(task.native_handle());
   ctx.run();
 
@@ -86,7 +86,7 @@ TEST_CASE("watch_read from wrong thread throws", "[io_context]") {
 
 TEST_CASE("post() from another thread wakes the event loop", "[io_context]") {
   auto ctx = make_io_context();
-  bool task_ran = false;
+  auto task_ran = false;
 
   auto waiter_fn = [&]() -> Task<> {
     co_return;
@@ -96,8 +96,8 @@ TEST_CASE("post() from another thread wakes the event loop", "[io_context]") {
     ctx.stop();
     co_return;
   };
-  auto waiter = waiter_fn();
-  auto stopper = stopper_fn();
+  const auto waiter = waiter_fn();
+  const auto stopper = stopper_fn();
 
   ctx.post(waiter.native_handle());
 
@@ -118,7 +118,7 @@ TEST_CASE("run() logs start and stop to clog without throwing", "[io_context]") 
     ctx.stop();
     co_return;
   };
-  auto task = task_fn();
+  const auto task = task_fn();
   ctx.post(task.native_handle());
   CHECK_NOTHROW(ctx.run());
 }

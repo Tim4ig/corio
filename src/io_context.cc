@@ -5,21 +5,15 @@
 #include <string>
 
 namespace corio {
-
 namespace {
-
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::atomic<int> g_thread_counter{0};
-
+std::atomic g_thread_counter{0};
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 thread_local auto tls_thread_id = g_thread_counter.fetch_add(1, std::memory_order_relaxed);
-
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 thread_local IoContext* tls_current_ctx = nullptr;
-
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 thread_local std::shared_ptr<detail::ContextMap> tls_current_context;
-
 } // namespace
 
 IoContext::IoContext(std::unique_ptr<Poller> poller)
@@ -29,7 +23,7 @@ IoContext::IoContext(std::unique_ptr<Poller> poller)
 
 void IoContext::run() {
   check_thread();
-  std::clog << "[corio] thread " << tls_thread_id << ": IoContext::run() start\n";
+  std::clog << "[corio] thread " << tls_thread_id << ": IoContext::run() start\n"; // TODO: logger for debug!
 
   auto* const prev_ctx = tls_current_ctx;
   tls_current_ctx = this;

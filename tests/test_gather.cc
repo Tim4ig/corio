@@ -19,11 +19,10 @@ static Task<> immediate_void() {
 }
 static Task<int> throws_int() {
   throw std::runtime_error("child error");
-  co_return 0;
 }
 
 TEST_CASE("gather all void tasks completes", "[gather]") {
-  int counter = 0;
+  auto counter = 0;
   auto fn = [&]() -> Task<> {
     auto a_fn = [&]() -> Task<> {
       ++counter;
@@ -44,10 +43,11 @@ TEST_CASE("gather all void tasks completes", "[gather]") {
 }
 
 TEST_CASE("gather returns values in argument order", "[gather]") {
-  auto [a, b, c] = test::run_task<std::tuple<int, int, int>>(gather(immediate(10), immediate(20), immediate(30)));
-  CHECK(a == 10);
-  CHECK(b == 20);
-  CHECK(c == 30);
+  auto [res_a, res_b, res_c] =
+      test::run_task<std::tuple<int, int, int>>(gather(immediate(10), immediate(20), immediate(30)));
+  CHECK(res_a == 10);
+  CHECK(res_b == 20);
+  CHECK(res_c == 30);
 }
 
 TEST_CASE("gather mixed void and value tasks", "[gather]") {
@@ -56,7 +56,7 @@ TEST_CASE("gather mixed void and value tasks", "[gather]") {
 }
 
 TEST_CASE("gather with zero tasks completes immediately", "[gather]") {
-  bool ran = false;
+  auto ran = false;
   auto fn = [&]() -> Task<> {
     co_await gather();
     ran = true;
@@ -75,7 +75,7 @@ TEST_CASE("gather exception from child propagates", "[gather]") {
 
 TEST_CASE("gather tasks run concurrently (timing)", "[gather]") {
   using Clock = std::chrono::steady_clock;
-  auto start = Clock::now();
+  const auto start = Clock::now();
 
   auto sleep = [](auto dur) -> Task<> {
     co_await async_sleep(dur);

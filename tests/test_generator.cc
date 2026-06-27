@@ -9,24 +9,24 @@
 using namespace corio;
 
 static Generator<int> fibonacci() {
-  int prev = 0;
-  int curr = 1;
+  auto prev = 0;
+  auto curr = 1;
   for (;;) {
     co_yield prev;
-    int next = prev + curr;
+    const auto next = prev + curr;
     prev = curr;
     curr = next;
   }
 }
 
 static Generator<int> finite(int count) {
-  for (int i = 0; i < count; ++i) {
+  for (auto i = 0; i < count; ++i) {
     co_yield i;
   }
 }
 
 static Generator<int> throws_after(int count) {
-  for (int i = 0; i < count; ++i) {
+  for (auto i = 0; i < count; ++i) {
     co_yield i;
   }
   throw std::runtime_error("generator error");
@@ -36,7 +36,7 @@ TEST_CASE("Generator produces infinite sequence", "[generator]") {
   std::vector<int> got;
   auto fn = [&]() -> Task<> {
     auto gen = fibonacci();
-    for (int i = 0; i < 8; ++i) {
+    for (auto i = 0; i < 8; ++i) {
       auto val = co_await gen.next();
       REQUIRE(val.has_value());
       got.push_back(*val);
@@ -48,7 +48,7 @@ TEST_CASE("Generator produces infinite sequence", "[generator]") {
 
 TEST_CASE("Generator finite sequence ends with nullopt", "[generator]") {
   std::vector<int> got;
-  bool ended = false;
+  auto ended = false;
   auto fn = [&]() -> Task<> {
     auto gen = finite(3);
     for (;;) {
@@ -66,10 +66,10 @@ TEST_CASE("Generator finite sequence ends with nullopt", "[generator]") {
 }
 
 TEST_CASE("Generator zero-length ends immediately", "[generator]") {
-  bool ended = false;
+  auto ended = false;
   auto fn = [&]() -> Task<> {
     auto gen = finite(0);
-    auto val = co_await gen.next();
+    const auto val = co_await gen.next();
     ended = !val.has_value();
   };
   test::run_task<void>(fn());

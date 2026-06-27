@@ -4,13 +4,11 @@
 #include <corio/task.h>
 #include <exception>
 #include <optional>
-#include <stdexcept>
 
 namespace test {
-
 /// Run a coroutine to completion on a fresh IoContext.
 /// The coroutine receives an IoContext* and must call ctx->stop() before returning.
-template <typename Factory> void run(Factory&& factory) {
+template <typename Factory> void run(const Factory& factory) {
   auto ctx = corio::make_io_context();
   auto task = factory(&ctx);
   ctx.post(task.native_handle());
@@ -42,7 +40,7 @@ template <typename T> T run_task(corio::Task<T> task) {
   return std::move(*result);
 }
 
-template <> inline void run_task<void>(corio::Task<void> task) {
+template <> inline void run_task<void>(corio::Task<> task) {
   auto ctx = corio::make_io_context();
   std::exception_ptr exc;
 
@@ -54,7 +52,7 @@ template <> inline void run_task<void>(corio::Task<void> task) {
     }
     ctx.stop();
   };
-  auto wrapper = fn();
+  const auto wrapper = fn();
   ctx.post(wrapper.native_handle());
   ctx.run();
 
@@ -62,5 +60,4 @@ template <> inline void run_task<void>(corio::Task<void> task) {
     std::rethrow_exception(exc);
   }
 }
-
 } // namespace test

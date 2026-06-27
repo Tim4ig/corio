@@ -44,8 +44,8 @@ TEST_CASE("ContextVar get_or returns default when not set", "[context_var]") {
 
 TEST_CASE("ContextVar modifications stay local to the current task", "[context_var]") {
   auto ctx = make_io_context();
-  int seen_a = -1;
-  int seen_b = -1;
+  auto seen_a = -1;
+  auto seen_b = -1;
 
   auto task_a_fn = [&]() -> Task<> {
     cv_int.set(100);
@@ -57,8 +57,8 @@ TEST_CASE("ContextVar modifications stay local to the current task", "[context_v
     co_await async_sleep(10ms);
     seen_b = cv_int.get_or(-1);
   };
-  auto task_a = task_a_fn();
-  auto task_b = task_b_fn();
+  const auto task_a = task_a_fn();
+  const auto task_b = task_b_fn();
 
   auto root_fn = [&]() -> Task<> {
     ctx.post(task_a.native_handle());
@@ -66,7 +66,7 @@ TEST_CASE("ContextVar modifications stay local to the current task", "[context_v
     co_await async_sleep(50ms);
     ctx.stop();
   };
-  auto root = root_fn();
+  const auto root = root_fn();
 
   ctx.post(root.native_handle());
   ctx.run();
@@ -76,7 +76,7 @@ TEST_CASE("ContextVar modifications stay local to the current task", "[context_v
 }
 
 TEST_CASE("Child task inherits parent context at spawn time", "[context_var]") {
-  int seen_in_child = -1;
+  auto seen_in_child = -1;
   auto child_fn = [&seen_in_child]() -> Task<> {
     seen_in_child = cv_int.get_or(-1);
     co_return;
@@ -84,7 +84,7 @@ TEST_CASE("Child task inherits parent context at spawn time", "[context_var]") {
 
   test::run([&](IoContext* ctx) -> Task<> {
     cv_int.set(77);
-    auto child = child_fn();
+    const auto child = child_fn();
     ctx->post(child.native_handle());
     co_await async_sleep(20ms);
     ctx->stop();
@@ -94,7 +94,7 @@ TEST_CASE("Child task inherits parent context at spawn time", "[context_var]") {
 }
 
 TEST_CASE("Child modification does not affect parent context", "[context_var]") {
-  int parent_after = -1;
+  auto parent_after = -1;
   auto child_fn = []() -> Task<> {
     cv_int.set(999);
     co_return;
@@ -102,7 +102,7 @@ TEST_CASE("Child modification does not affect parent context", "[context_var]") 
 
   test::run([&](IoContext* ctx) -> Task<> {
     cv_int.set(10);
-    auto child = child_fn();
+    const auto child = child_fn();
     ctx->post(child.native_handle());
     co_await async_sleep(20ms);
     parent_after = cv_int.get_or(-1);

@@ -11,7 +11,7 @@ using namespace std::chrono_literals;
 
 TEST_CASE("async_sleep suspends for at least the requested duration", "[timer]") {
   using Clock = std::chrono::steady_clock;
-  auto start = Clock::now();
+  const auto start = Clock::now();
 
   auto fn = []() -> Task<> {
     co_await async_sleep(30ms);
@@ -25,7 +25,7 @@ TEST_CASE("async_sleep suspends for at least the requested duration", "[timer]")
 
 TEST_CASE("async_sleep zero duration returns immediately", "[timer]") {
   using Clock = std::chrono::steady_clock;
-  auto start = Clock::now();
+  const auto start = Clock::now();
 
   auto fn = []() -> Task<> {
     co_await async_sleep(0ms);
@@ -38,7 +38,7 @@ TEST_CASE("async_sleep zero duration returns immediately", "[timer]") {
 
 TEST_CASE("sequential async_sleeps accumulate time", "[timer]") {
   using Clock = std::chrono::steady_clock;
-  auto start = Clock::now();
+  const auto start = Clock::now();
 
   auto fn = []() -> Task<> {
     co_await async_sleep(20ms);
@@ -57,7 +57,7 @@ TEST_CASE("multiple independent tasks each sleep their own duration", "[timer]")
 
   auto fn = [&]() -> Task<> {
     auto sleep_fn = [](std::chrono::milliseconds dur, std::chrono::milliseconds& out) -> Task<> {
-      auto start_tp = Clock::now();
+      const auto start_tp = Clock::now();
       co_await async_sleep(dur);
       out = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start_tp);
       co_return;

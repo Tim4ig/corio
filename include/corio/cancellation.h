@@ -8,7 +8,6 @@
 #include <vector>
 
 namespace corio {
-
 class CancellationToken;
 /// @brief Owns a cancellation signal. Call request_cancellation() to fire it.
 ///
@@ -23,7 +22,7 @@ class CancellationToken;
 /// src.request_cancellation();
 ///
 /// // in a coroutine:
-/// co_await token.wait();   // suspends until cancelled
+/// co_await token.wait();   // suspends until canceled
 /// @endcode
 class CancellationSource {
  public:
@@ -68,7 +67,7 @@ class CancellationToken {
 
     void await_suspend(std::coroutine_handle<> handle) const {
       auto* ctx = IoContext::current();
-      std::lock_guard lock(state->mutex);
+      std::scoped_lock lock(state->mutex);
       if (state->cancelled.load(std::memory_order_acquire)) {
         // became canceled between await_ready and await_suspend
         ctx->post(handle);
@@ -101,7 +100,7 @@ inline CancellationToken CancellationSource::token() const noexcept {
 inline void CancellationSource::request_cancellation() const noexcept {
   std::vector<std::pair<IoContext*, std::coroutine_handle<>>> waiters;
   {
-    std::lock_guard lock(state_->mutex);
+    std::scoped_lock lock(state_->mutex);
     if (state_->cancelled.exchange(true, std::memory_order_acq_rel)) {
       return; // already canceled
     }
@@ -112,5 +111,4 @@ inline void CancellationSource::request_cancellation() const noexcept {
     ctx->post(handle); // thread-safe
   }
 }
-
 } // namespace corio

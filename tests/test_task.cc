@@ -12,11 +12,10 @@ static Task<int> return_value(int val) {
 
 static Task<> throw_logic_error() {
   throw std::logic_error("boom");
-  co_return;
 }
 
 static Task<int> chain(int val) {
-  int result = co_await return_value(val + 1);
+  const auto result = co_await return_value(val + 1);
   co_return result * 2;
 }
 
@@ -30,7 +29,7 @@ static Task<> deep_chain(int depth, int& counter) {
 }
 
 TEST_CASE("Task<void> completes", "[task]") {
-  bool ran = false;
+  auto ran = false;
   auto fn = [&]() -> Task<> {
     ran = true;
     co_return;
@@ -40,12 +39,12 @@ TEST_CASE("Task<void> completes", "[task]") {
 }
 
 TEST_CASE("Task<int> returns value", "[task]") {
-  int val = test::run_task<int>(return_value(42));
+  const auto val = test::run_task<int>(return_value(42));
   CHECK(val == 42);
 }
 
 TEST_CASE("Task chain propagates value", "[task]") {
-  int val = test::run_task<int>(chain(5));
+  const auto val = test::run_task<int>(chain(5));
   CHECK(val == 12);
 }
 
@@ -54,7 +53,7 @@ TEST_CASE("Task exception propagates to caller", "[task]") {
 }
 
 TEST_CASE("Task is lazy (frame not entered until resumed)", "[task]") {
-  bool entered = false;
+  auto entered = false;
   auto task_fn = [&]() -> Task<> {
     entered = true;
     co_return;
@@ -66,7 +65,7 @@ TEST_CASE("Task is lazy (frame not entered until resumed)", "[task]") {
 }
 
 TEST_CASE("Deep task chain does not stack overflow (symmetric transfer)", "[task]") {
-  int counter = 0;
+  auto counter = 0;
   auto fn = [&]() -> Task<> {
     co_await deep_chain(10'000, counter);
   };
@@ -76,7 +75,7 @@ TEST_CASE("Deep task chain does not stack overflow (symmetric transfer)", "[task
 
 TEST_CASE("Task move semantics: moved-from task is empty", "[task]") {
   auto task_src = return_value(1);
-  auto task_dst = std::move(task_src);
+  const auto task_dst = std::move(task_src);
   CHECK(task_src.done()); // NOLINT(bugprone-use-after-move) -- verifies moved-from state
   CHECK_FALSE(task_dst.done());
 }

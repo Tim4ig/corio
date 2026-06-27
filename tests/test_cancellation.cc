@@ -11,36 +11,36 @@ using namespace corio;
 using namespace std::chrono_literals;
 
 TEST_CASE("CancellationToken not cancelled by default", "[cancellation]") {
-  CancellationSource src;
+  const CancellationSource src;
   CHECK_FALSE(src.is_cancellation_requested());
   CHECK_FALSE(src.token().is_cancellation_requested());
 }
 
 TEST_CASE("request_cancellation sets the flag", "[cancellation]") {
-  CancellationSource src;
+  const CancellationSource src;
   src.request_cancellation();
   CHECK(src.is_cancellation_requested());
   CHECK(src.token().is_cancellation_requested());
 }
 
 TEST_CASE("request_cancellation is idempotent", "[cancellation]") {
-  CancellationSource src;
+  const CancellationSource src;
   src.request_cancellation();
   src.request_cancellation();
   CHECK(src.is_cancellation_requested());
 }
 
 TEST_CASE("co_await token.wait() suspends until request_cancellation()", "[cancellation]") {
-  CancellationSource src;
-  auto token = src.token();
-  bool after_wait = false;
+  const CancellationSource src;
+  const auto token = src.token();
+  auto after_wait = false;
 
   test::run([&](IoContext* ctx) -> Task<> {
     auto canceller_fn = [&]() -> Task<> {
       co_await async_sleep(20ms);
       src.request_cancellation();
     };
-    auto canceller = canceller_fn();
+    const auto canceller = canceller_fn();
     ctx->post(canceller.native_handle());
 
     co_await token.wait();
@@ -52,9 +52,9 @@ TEST_CASE("co_await token.wait() suspends until request_cancellation()", "[cance
 }
 
 TEST_CASE("co_await already-cancelled token returns immediately", "[cancellation]") {
-  CancellationSource src;
+  const CancellationSource src;
   src.request_cancellation();
-  bool ran = false;
+  auto ran = false;
 
   test::run([&](IoContext* ctx) -> Task<> {
     co_await src.token().wait();
@@ -66,8 +66,8 @@ TEST_CASE("co_await already-cancelled token returns immediately", "[cancellation
 }
 
 TEST_CASE("request_cancellation from another thread wakes all waiters", "[cancellation]") {
-  CancellationSource src2;
-  int woken2 = 0;
+  const CancellationSource src2;
+  auto woken2 = 0;
 
   auto ctx2 = make_io_context();
 
@@ -80,9 +80,9 @@ TEST_CASE("request_cancellation from another thread wakes all waiters", "[cancel
     co_await async_sleep(200ms);
     ctx2.stop();
   };
-  auto w1 = waiter_fn();
-  auto w2 = waiter_fn();
-  auto stopper = stopper_fn();
+  const auto w1 = waiter_fn();
+  const auto w2 = waiter_fn();
+  const auto stopper = stopper_fn();
 
   ctx2.post(w1.native_handle());
   ctx2.post(w2.native_handle());
@@ -100,8 +100,8 @@ TEST_CASE("request_cancellation from another thread wakes all waiters", "[cancel
 }
 
 TEST_CASE("CancellationSource outlives CancellationToken", "[cancellation]") {
-  CancellationToken token = [] {
-    CancellationSource src;
+  const CancellationToken token = [] {
+    const CancellationSource src;
     return src.token();
   }();
   CHECK_FALSE(token.is_cancellation_requested());
