@@ -17,6 +17,21 @@ endif()
 set(CORIO_SOURCES
     src/linux/epoll.cc
     src/io_context.cc
+    # Headers listed so IDEs include them in the project index
+    include/corio/cancellation.h
+    include/corio/context_var.h
+    include/corio/gather.h
+    include/corio/generator.h
+    include/corio/io_context.h
+    include/corio/task.h
+    include/corio/timer.h
+    include/corio/detail/context.h
+    include/corio/detail/platform.h
+    include/corio/detail/poller.h
+    include/corio/detail/token.h
+    include/corio/detail/types.h
+    include/corio/detail/linux/epoll.h
+    include/corio/detail/linux/timer.h
 )
 
 option(BUILD_SHARED_LIBS "Build shared library" ON)
