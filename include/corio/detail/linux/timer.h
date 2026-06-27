@@ -41,7 +41,7 @@ class TimerfdSleepAwaitable {
 
   void await_resume() noexcept {
     uint64_t val = 0;
-    (void)read(fd_, &val, sizeof(val));
+    [[maybe_unused]] auto bytes_read = read(fd_, &val, sizeof(val));
     close(fd_);
     fd_ = -1;
   }
