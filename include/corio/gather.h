@@ -86,7 +86,7 @@ template <typename... Ts> Task<std::tuple<detail::GatherVal<Ts>...>> gather(Task
   auto task_tuple = std::make_tuple(std::move(tasks)...);
 
   auto children = [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-    return std::array<Task<void>, sizeof...(Ts)>{
+    return std::array<Task<>, sizeof...(Ts)>{
         detail::gather_child(std::move(std::get<Is>(task_tuple)), std::get<Is>(results), state)...};
   }(std::make_index_sequence<sizeof...(Ts)>{});
 
