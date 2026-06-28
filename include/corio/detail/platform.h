@@ -1,10 +1,10 @@
 #pragma once
 
 #ifdef __linux__
-#include <corio/detail/linux/epoll.h>
+#include <corio/detail/linux/io_uring.h>
 #include <corio/detail/linux/timer.h>
 namespace corio::detail {
-using TargetPoller = EPoller;
+using TargetPoller = URingPoller;
 using SleepAwaitable = TimerfdSleepAwaitable;
 } // namespace corio::detail
 #else

@@ -119,17 +119,16 @@ TEST_CASE("destroying a task waiting on cancellation unregisters the waiter", "[
   auto ctx = make_io_context();
   auto resumed = false;
 
-  auto waiter_fn = [&]() -> Task<> {
-    co_await src.token().wait();
-    resumed = true;
-  };
-  auto stopper_fn = [&]() -> Task<> {
-    co_await async_sleep(10ms);
-    ctx.stop();
-  };
-
   {
-    auto waiter = waiter_fn();
+    auto waiter_fn = [&]() -> Task<> {
+      co_await src.token().wait();
+      resumed = true;
+    };
+    auto stopper_fn = [&]() -> Task<> {
+      co_await async_sleep(10ms);
+      ctx.stop();
+    };
+    const auto waiter = waiter_fn();
     const auto stopper = stopper_fn();
     ctx.post(waiter.native_handle());
     ctx.post(stopper.native_handle());

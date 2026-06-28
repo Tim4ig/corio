@@ -40,7 +40,7 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y --no-install-recommends \
-            ${{ matrix.cc }} ninja-build cmake
+            ${{ matrix.cc }} ninja-build cmake liburing-dev
 
       - name: Configure
         env:
@@ -68,7 +68,7 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y --no-install-recommends \
-            gcc-14 g++-14 ninja-build cmake
+            gcc-14 g++-14 ninja-build cmake liburing-dev
 
       - name: Configure
         env:
@@ -96,7 +96,7 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y --no-install-recommends \
-            clang-18 ninja-build cmake \
+            clang-18 ninja-build cmake liburing-dev \
             clang-tidy-18 clang-format-18
 
       - name: Configure (for compile_commands.json)

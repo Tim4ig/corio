@@ -15,7 +15,7 @@ endif()
 # Library
 # ---------------------------------------------------------------------------
 set(CORIO_SOURCES
-    src/linux/epoll.cc
+    src/linux/io_uring.cc
     src/io_context.cc
     # Headers listed so IDEs include them in the project index
     include/corio/cancellation.h
@@ -30,7 +30,7 @@ set(CORIO_SOURCES
     include/corio/detail/poller.h
     include/corio/detail/token.h
     include/corio/detail/types.h
-    include/corio/detail/linux/epoll.h
+    include/corio/detail/linux/io_uring.h
     include/corio/detail/linux/timer.h
 )
 
@@ -51,6 +51,8 @@ target_include_directories(corio
     PRIVATE
         src/
 )
+
+target_link_libraries(corio PRIVATE uring)
 
 target_compile_options(corio PRIVATE
     -Wall -Wextra -Wpedantic
