@@ -112,7 +112,7 @@ TEST_CASE("post() from another thread wakes the event loop", "[io_context]") {
   CHECK(task_ran);
 }
 
-TEST_CASE("run() logs start and stop to clog without throwing", "[io_context]") {
+TEST_CASE("run() can be called without throwing", "[io_context]") {
   auto ctx = make_io_context();
   auto task_fn = [&]() -> Task<> {
     ctx.stop();

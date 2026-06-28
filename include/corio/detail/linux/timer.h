@@ -8,6 +8,7 @@ class IoContext;
 
 #include <chrono>
 #include <coroutine>
+#include <stdexcept>
 #include <sys/timerfd.h>
 #include <system_error>
 #include <unistd.h>
@@ -21,11 +22,7 @@ class TimerfdSleepAwaitable {
     : duration_(dur) {
   }
 
-  ~TimerfdSleepAwaitable() {
-    if (fd_ != -1) {
-      close(fd_);
-    }
-  }
+  ~TimerfdSleepAwaitable();
 
   TimerfdSleepAwaitable(const TimerfdSleepAwaitable&) = delete;
   TimerfdSleepAwaitable& operator=(const TimerfdSleepAwaitable&) = delete;
@@ -49,6 +46,8 @@ class TimerfdSleepAwaitable {
  private:
   std::chrono::nanoseconds duration_;
   int fd_{-1};
+  IoContext* ctx_{nullptr};
+  std::coroutine_handle<> handle_;
 };
 
 } // namespace corio::detail
@@ -57,7 +56,21 @@ class TimerfdSleepAwaitable {
 // TimerfdSleepAwaitable::await_suspend needs IoContext::current().
 #include <corio/io_context.h>
 
+inline corio::detail::TimerfdSleepAwaitable::~TimerfdSleepAwaitable() {
+  if (fd_ != -1) {
+    if (ctx_ != nullptr && handle_) {
+      (void)ctx_->cancel_read(fd_, handle_);
+    }
+    close(fd_);
+  }
+}
+
 inline void corio::detail::TimerfdSleepAwaitable::await_suspend(std::coroutine_handle<> handle) {
+  auto* ctx = IoContext::current();
+  if (ctx == nullptr) {
+    throw std::logic_error("corio::async_sleep requires a running IoContext");
+  }
+
   fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
   if (fd_ == -1) {
     throw std::system_error(errno, std::generic_category(), "timerfd_create");
@@ -75,5 +88,16 @@ inline void corio::detail::TimerfdSleepAwaitable::await_suspend(std::coroutine_h
     throw std::system_error(err, std::generic_category(), "timerfd_settime");
   }
 
-  IoContext::current()->watch_read(fd_, handle);
+  ctx_ = ctx;
+  handle_ = handle;
+
+  try {
+    ctx_->watch_read(fd_, handle_);
+  } catch (...) {
+    close(fd_);
+    fd_ = -1;
+    ctx_ = nullptr;
+    handle_ = {};
+    throw;
+  }
 }

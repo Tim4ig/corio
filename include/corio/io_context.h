@@ -55,6 +55,16 @@ class IoContext {
   ///        Must be called from the owning thread.
   void unwatch(int fd);
 
+  /// @brief Remove a pending read interest if it still belongs to handle.
+  ///        Must be called from the owning thread.
+  /// @return true when the registered read waiter was removed.
+  bool cancel_read(int fd, std::coroutine_handle<> handle) noexcept;
+
+  /// @brief Remove a pending write interest if it still belongs to handle.
+  ///        Must be called from the owning thread.
+  /// @return true when the registered write waiter was removed.
+  bool cancel_write(int fd, std::coroutine_handle<> handle) noexcept;
+
   /// @brief Returns the IoContext running on the current thread, or nullptr.
   [[nodiscard]] static IoContext* current() noexcept;
 
@@ -85,6 +95,7 @@ class IoContext {
   [[nodiscard]] static IOEvent fd_events(const FdState& state) noexcept;
   void process_token(const IOToken& token);
   void check_thread() const;
+  bool cancel_interest(int fd, std::coroutine_handle<> handle, bool read) noexcept;
 
   /// Snapshot of current context (copy-on-write: each task gets its own).
   [[nodiscard]] static CtxPtr snapshot_context();

@@ -85,3 +85,11 @@ TEST_CASE("Generator exception propagates to consumer", "[generator]") {
   };
   CHECK_THROWS_AS(test::run_task<void>(fn()), std::runtime_error);
 }
+
+TEST_CASE("Awaiting an empty Generator throws logic_error", "[generator]") {
+  auto fn = [&]() -> Task<> {
+    Generator<int> gen;
+    co_await gen.next();
+  };
+  CHECK_THROWS_AS(test::run_task<void>(fn()), std::logic_error);
+}

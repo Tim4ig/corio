@@ -1,14 +1,25 @@
 include(FetchContent)
 
-FetchContent_Declare(
-    Catch2
-    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG        v3.7.1
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(Catch2)
+option(CORIO_FETCH_TEST_DEPS "Fetch test dependencies when they are not installed" ON)
 
-list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+find_package(Catch2 3 QUIET)
+if(NOT Catch2_FOUND)
+    if(NOT CORIO_FETCH_TEST_DEPS)
+        message(FATAL_ERROR "Catch2 3 was not found and CORIO_FETCH_TEST_DEPS is OFF.")
+    endif()
+
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG        v3.7.1
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(Catch2)
+endif()
+
+if(DEFINED catch2_SOURCE_DIR)
+    list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+endif()
 include(Catch)
 
 set(CORIO_TEST_SOURCES
@@ -34,4 +45,4 @@ target_compile_options(corio_tests PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Werror>
 )
 
-catch_discover_tests(corio_tests)
+catch_discover_tests(corio_tests DISCOVERY_MODE PRE_TEST)

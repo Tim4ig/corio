@@ -79,3 +79,16 @@ TEST_CASE("Task move semantics: moved-from task is empty", "[task]") {
   CHECK(task_src.done()); // NOLINT(bugprone-use-after-move) -- verifies moved-from state
   CHECK_FALSE(task_dst.done());
 }
+
+TEST_CASE("Awaiting an empty Task throws logic_error", "[task]") {
+  Task<> empty;
+  auto fn = [&]() -> Task<> {
+    co_await std::move(empty);
+  };
+  CHECK_THROWS_AS(test::run_task<void>(fn()), std::logic_error);
+}
+
+TEST_CASE("Resuming an empty Task throws logic_error", "[task]") {
+  Task<> empty;
+  CHECK_THROWS_AS(empty.resume(), std::logic_error);
+}

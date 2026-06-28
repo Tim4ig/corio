@@ -5,7 +5,9 @@
 #include <corio/cancellation.h>
 #include <corio/task.h>
 #include <corio/timer.h>
+#include <stdexcept>
 #include <thread>
+#include <utility>
 
 using namespace corio;
 using namespace std::chrono_literals;
@@ -105,4 +107,47 @@ TEST_CASE("CancellationSource outlives CancellationToken", "[cancellation]") {
     return src.token();
   }();
   CHECK_FALSE(token.is_cancellation_requested());
+}
+
+TEST_CASE("wait() on moved-from CancellationToken throws", "[cancellation]") {
+  const CancellationSource src;
+  auto token = src.token();
+  [[maybe_unused]] auto moved = std::move(token);
+
+  CHECK_THROWS_AS(token.wait(), std::logic_error);
+}
+
+TEST_CASE("destroying a task waiting on cancellation unregisters the waiter", "[cancellation]") {
+  const CancellationSource src;
+  auto ctx = make_io_context();
+  auto resumed = false;
+
+  auto waiter_fn = [&]() -> Task<> {
+    co_await src.token().wait();
+    resumed = true;
+  };
+  auto stopper_fn = [&]() -> Task<> {
+    co_await async_sleep(10ms);
+    ctx.stop();
+  };
+
+  {
+    auto waiter = waiter_fn();
+    const auto stopper = stopper_fn();
+    ctx.post(waiter.native_handle());
+    ctx.post(stopper.native_handle());
+    ctx.run();
+  }
+
+  src.request_cancellation();
+
+  auto drain_fn = [&]() -> Task<> {
+    ctx.stop();
+    co_return;
+  };
+  const auto drain = drain_fn();
+  ctx.post(drain.native_handle());
+  ctx.run();
+
+  CHECK_FALSE(resumed);
 }

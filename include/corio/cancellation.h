@@ -1,10 +1,13 @@
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <corio/io_context.h>
 #include <coroutine>
 #include <memory>
 #include <mutex>
+#include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace corio {
@@ -60,27 +63,82 @@ class CancellationToken {
   ///        Returns immediately if already canceled.
   struct WaitAwaitable {
     std::shared_ptr<CancellationSource::State> state;
+    IoContext* ctx{nullptr};
+    std::coroutine_handle<> handle;
+    bool registered{false};
+
+    explicit WaitAwaitable(std::shared_ptr<CancellationSource::State> state_in) noexcept
+      : state(std::move(state_in)) {
+    }
+
+    ~WaitAwaitable() {
+      unregister();
+    }
+
+    WaitAwaitable(const WaitAwaitable&) = delete;
+    WaitAwaitable& operator=(const WaitAwaitable&) = delete;
+
+    WaitAwaitable(WaitAwaitable&& other) noexcept
+      : state(std::move(other.state))
+      , ctx(std::exchange(other.ctx, nullptr))
+      , handle(std::exchange(other.handle, {}))
+      , registered(std::exchange(other.registered, false)) {
+    }
+
+    WaitAwaitable& operator=(WaitAwaitable&& other) noexcept {
+      if (this != &other) {
+        unregister();
+        state = std::move(other.state);
+        ctx = std::exchange(other.ctx, nullptr);
+        handle = std::exchange(other.handle, {});
+        registered = std::exchange(other.registered, false);
+      }
+      return *this;
+    }
 
     [[nodiscard]] bool await_ready() const noexcept {
       return state->cancelled.load(std::memory_order_acquire);
     }
 
-    void await_suspend(std::coroutine_handle<> handle) const {
-      auto* ctx = IoContext::current();
+    void await_suspend(std::coroutine_handle<> coroutine) {
+      ctx = IoContext::current();
+      if (ctx == nullptr) {
+        throw std::logic_error("corio::CancellationToken::wait requires a running IoContext");
+      }
+
       std::scoped_lock lock(state->mutex);
       if (state->cancelled.load(std::memory_order_acquire)) {
         // became canceled between await_ready and await_suspend
-        ctx->post(handle);
+        ctx->post(coroutine);
         return;
       }
+      handle = coroutine;
+      registered = true;
       state->waiters.emplace_back(ctx, handle);
     }
 
-    static void await_resume() noexcept {
+    void await_resume() noexcept {
+      registered = false;
+    }
+
+   private:
+    void unregister() noexcept {
+      if (!registered || !state) {
+        return;
+      }
+
+      std::scoped_lock lock(state->mutex);
+      const auto waiter = std::pair{ctx, handle};
+      auto& waiters = state->waiters;
+      waiters.erase(std::remove(waiters.begin(), waiters.end(), waiter), waiters.end());
+      registered = false;
     }
   };
 
-  [[nodiscard]] WaitAwaitable wait() const noexcept {
+  [[nodiscard]] WaitAwaitable wait() const {
+    if (!state_) {
+      throw std::logic_error("corio::CancellationToken::wait called on an empty token");
+    }
     return WaitAwaitable{state_};
   }
 

@@ -1,6 +1,5 @@
 #include <corio/detail/platform.h>
 #include <corio/io_context.h>
-#include <iostream>
 #include <stdexcept>
 #include <string>
 
@@ -23,7 +22,6 @@ IoContext::IoContext(std::unique_ptr<Poller> poller)
 
 void IoContext::run() {
   check_thread();
-  std::clog << "[corio] thread " << tls_thread_id << ": IoContext::run() start\n"; // TODO: logger for debug!
 
   auto* const prev_ctx = tls_current_ctx;
   tls_current_ctx = this;
@@ -56,7 +54,6 @@ void IoContext::run() {
 
   tls_current_ctx = prev_ctx;
   tls_current_context = nullptr;
-  std::clog << "[corio] thread " << tls_thread_id << ": IoContext::run() stop\n";
 }
 
 void IoContext::stop() noexcept {
@@ -116,6 +113,14 @@ void IoContext::unwatch(int fd) {
   }
 }
 
+bool IoContext::cancel_read(int fd, std::coroutine_handle<> handle) noexcept {
+  return cancel_interest(fd, handle, true);
+}
+
+bool IoContext::cancel_write(int fd, std::coroutine_handle<> handle) noexcept {
+  return cancel_interest(fd, handle, false);
+}
+
 IoContext* IoContext::current() noexcept {
   return tls_current_ctx;
 }
@@ -165,6 +170,39 @@ void IoContext::check_thread() const {
     throw std::logic_error("IoContext: method called from a thread other than the owning thread "
                            "(logical id " +
                            std::to_string(tls_thread_id) + ")");
+  }
+}
+
+bool IoContext::cancel_interest(int fd, std::coroutine_handle<> handle, bool read) noexcept {
+  if (std::this_thread::get_id() != owner_thread_) {
+    return false;
+  }
+
+  try {
+    const auto it = fd_states_.find(fd);
+    if (it == fd_states_.end()) {
+      return false;
+    }
+
+    auto& state = it->second;
+    auto& slot = read ? state.reader : state.writer;
+    auto& slot_ctx = read ? state.reader_ctx : state.writer_ctx;
+    if (slot != handle) {
+      return false;
+    }
+
+    slot = {};
+    slot_ctx.reset();
+
+    if (const auto remaining = fd_events(state); !any(remaining)) {
+      poller_->rem(fd);
+      fd_states_.erase(it);
+    } else {
+      poller_->mod(fd, remaining, nullptr);
+    }
+    return true;
+  } catch (...) {
+    return false;
   }
 }
 

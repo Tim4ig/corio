@@ -3,6 +3,7 @@
 #include <coroutine>
 #include <exception>
 #include <optional>
+#include <stdexcept>
 #include <utility>
 
 namespace corio {
@@ -125,15 +126,21 @@ template <typename T> class Generator {
     Handle gen;
 
     [[nodiscard]] bool await_ready() const noexcept {
-      return gen.done();
+      return !gen || gen.done();
     }
 
-    Handle await_suspend(std::coroutine_handle<> consumer) noexcept {
+    Handle await_suspend(std::coroutine_handle<> consumer) {
+      if (!gen) {
+        throw std::logic_error("corio::Generator: cannot await an empty generator");
+      }
       gen.promise().consumer = consumer;
       return gen;
     }
 
     std::optional<T> await_resume() {
+      if (!gen) {
+        throw std::logic_error("corio::Generator: cannot resume an empty generator");
+      }
       auto& promise = gen.promise();
       if (promise.exception) {
         std::rethrow_exception(promise.exception);
