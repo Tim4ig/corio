@@ -55,6 +55,8 @@ class CancellationSource {
 /// @brief Read-only view of a CancellationSource's signal.
 class CancellationToken {
  public:
+  CancellationToken() = default;
+
   [[nodiscard]] bool is_cancellation_requested() const noexcept {
     return state_ && state_->cancelled.load(std::memory_order_acquire);
   }

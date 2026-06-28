@@ -7,7 +7,6 @@
 #include <corio/timer.h>
 #include <stdexcept>
 #include <thread>
-#include <utility>
 
 using namespace corio;
 using namespace std::chrono_literals;
@@ -109,10 +108,8 @@ TEST_CASE("CancellationSource outlives CancellationToken", "[cancellation]") {
   CHECK_FALSE(token.is_cancellation_requested());
 }
 
-TEST_CASE("wait() on moved-from CancellationToken throws", "[cancellation]") {
-  const CancellationSource src;
-  auto token = src.token();
-  [[maybe_unused]] auto moved = std::move(token);
+TEST_CASE("wait() on empty CancellationToken throws", "[cancellation]") {
+  const CancellationToken token;
 
   CHECK_THROWS_AS(token.wait(), std::logic_error);
 }
