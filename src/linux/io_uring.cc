@@ -1,11 +1,9 @@
-#include <corio/detail/linux/io_uring.h>
-
-#include <sys/eventfd.h>
-#include <unistd.h>
-
 #include <cerrno>
+#include <corio/detail/linux/io_uring.h>
 #include <poll.h>
+#include <sys/eventfd.h>
 #include <system_error>
+#include <unistd.h>
 
 namespace corio::detail {
 namespace {

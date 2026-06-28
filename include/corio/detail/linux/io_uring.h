@@ -1,9 +1,7 @@
 #pragma once
 
 #include <corio/detail/poller.h>
-
 #include <liburing.h>
-
 #include <unordered_map>
 
 namespace corio::detail {
@@ -41,8 +39,7 @@ class URingPoller : public Poller {
   enum class Op : std::uint8_t { kPollAdd, kPollRemove, kWakeup };
 
   static std::uint64_t encode(Op op, int fd) noexcept {
-    return (static_cast<std::uint64_t>(std::to_underlying(op)) << 32) |
-           static_cast<std::uint32_t>(fd);
+    return (static_cast<std::uint64_t>(std::to_underlying(op)) << 32) | static_cast<std::uint32_t>(fd);
   }
 
   static Op decode_op(std::uint64_t data) noexcept {
