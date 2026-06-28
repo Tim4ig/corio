@@ -4,6 +4,7 @@
 #include <corio/io_context.h>
 #include <corio/task.h>
 #include <exception>
+#include <stdexcept>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -86,11 +87,14 @@ template <typename... Ts> Task<std::tuple<detail::GatherVal<Ts>...>> gather(Task
   auto task_tuple = std::make_tuple(std::move(tasks)...);
 
   auto children = [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-    return std::array<Task<void>, sizeof...(Ts)>{
+    return std::array<Task<>, sizeof...(Ts)>{
         detail::gather_child(std::move(std::get<Is>(task_tuple)), std::get<Is>(results), state)...};
   }(std::make_index_sequence<sizeof...(Ts)>{});
 
   auto* ctx = IoContext::current();
+  if (ctx == nullptr) {
+    throw std::logic_error("corio::gather requires a running IoContext");
+  }
   for (auto& child : children) {
     ctx->post(child.native_handle());
   }

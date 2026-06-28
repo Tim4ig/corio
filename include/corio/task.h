@@ -3,6 +3,7 @@
 #include <coroutine>
 #include <exception>
 #include <optional>
+#include <stdexcept>
 #include <type_traits>
 #include <utility>
 
@@ -96,16 +97,22 @@ template <typename T> class Task {
     return *this;
   }
 
-  [[nodiscard]] static bool await_ready() noexcept {
-    return false;
+  [[nodiscard]] bool await_ready() const noexcept {
+    return !handle_ || handle_.done();
   }
 
-  Handle await_suspend(std::coroutine_handle<> caller) noexcept {
+  Handle await_suspend(std::coroutine_handle<> caller) {
+    if (!handle_) {
+      throw std::logic_error("corio::Task: cannot await an empty task");
+    }
     handle_.promise().continuation = caller;
     return handle_;
   }
 
   T await_resume() {
+    if (!handle_) {
+      throw std::logic_error("corio::Task: cannot resume an empty task");
+    }
     auto& promise = handle_.promise();
     if (promise.exception) {
       std::rethrow_exception(promise.exception);
@@ -120,6 +127,9 @@ template <typename T> class Task {
   /// @brief Start the coroutine from a non-coroutine context (event loop
   ///        entry point). Caller is responsible for keeping the Task alive.
   void resume() {
+    if (!handle_) {
+      throw std::logic_error("corio::Task: cannot resume an empty task");
+    }
     handle_.resume();
   }
 

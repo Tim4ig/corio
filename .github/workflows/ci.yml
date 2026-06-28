@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Build + test matrix: GCC and Clang in Debug and Release
+  # -------------------------------------------------------------------------
+  build-and-test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: GCC Debug
+            preset: debug-gcc
+            cc: gcc-14
+            cxx: g++-14
+          - name: GCC Release
+            preset: release-gcc
+            cc: gcc-14
+            cxx: g++-14
+          - name: Clang Debug
+            preset: debug-clang
+            cc: clang-18
+            cxx: clang++-18
+          - name: Clang Release
+            preset: release-clang
+            cc: clang-18
+            cxx: clang++-18
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            ${{ matrix.cc }} ninja-build cmake liburing-dev
+
+      - name: Configure
+        env:
+          CC:  ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }} -j$(nproc)
+
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }} --timeout 60
+
+  # -------------------------------------------------------------------------
+  # AddressSanitizer + UndefinedBehaviorSanitizer
+  # -------------------------------------------------------------------------
+  sanitizers:
+    name: ASan / UBSan
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            gcc-14 g++-14 ninja-build cmake liburing-dev
+
+      - name: Configure
+        env:
+          CC:  gcc-14
+          CXX: g++-14
+        run: cmake --preset asan
+
+      - name: Build
+        run: cmake --build --preset asan -j$(nproc)
+
+      - name: Test
+        run: ctest --preset asan --timeout 60
+
+  # -------------------------------------------------------------------------
+  # Static analysis: clang-tidy (uses the .clang-tidy in repo root)
+  # -------------------------------------------------------------------------
+  lint:
+    name: Static Analysis
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            clang-18 ninja-build cmake liburing-dev \
+            clang-tidy-18 clang-format-18
+
+      - name: Configure (for compile_commands.json)
+        env:
+          CC:  clang-18
+          CXX: clang++-18
+        run: cmake --preset debug-clang
+
+      - name: Build (compile_commands must be populated)
+        run: cmake --build --preset debug-clang -j$(nproc)
+
+      - name: clang-tidy
+        run: |
+          run-clang-tidy-18 \
+            -p build/debug-clang \
+            -warnings-as-errors='*' \
+            $(find src tests -name '*.cc')
+
+      - name: clang-format check
+        run: |
+          find include src tests -name '*.h' -o -name '*.cc' \
+            | xargs clang-format-18 --dry-run --Werror
+
