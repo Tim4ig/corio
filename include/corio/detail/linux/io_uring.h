@@ -63,6 +63,12 @@ class URingPoller : public Poller {
   void submit_poll_remove(int fd);
   void rearm_wakeup();
 
+  // Block until at least one CQE is ready. Returns false on timeout.
+  [[nodiscard]] bool wait_for_first_cqe(std::chrono::milliseconds timeout);
+
+  // Consume one CQE and append any resulting IOToken to result.
+  void consume_cqe(const io_uring_cqe* cqe, std::vector<IOToken>& result, bool& woke);
+
   io_uring ring_{};
   bool ring_initialized_{false};
   int wakeup_fd_{-1};

@@ -92,10 +92,30 @@ void URingPoller::wake() noexcept {
 }
 
 std::vector<IOToken> URingPoller::poll(std::chrono::milliseconds timeout) {
-  // Flush any buffered SQEs (paranoia; add/mod/rem submit eagerly).
   io_uring_submit(&ring_);
 
-  // Block until at least one CQE is available.
+  if (!wait_for_first_cqe(timeout)) {
+    return {};
+  }
+
+  std::vector<IOToken> result;
+  bool woke = false;
+
+  io_uring_cqe* cqe = nullptr;
+  while (io_uring_peek_cqe(&ring_, &cqe) == 0) {
+    consume_cqe(cqe, result, woke);
+    io_uring_cqe_seen(&ring_, cqe);
+  }
+
+  if (woke) {
+    rearm_wakeup();
+    io_uring_submit(&ring_);
+  }
+
+  return result;
+}
+
+bool URingPoller::wait_for_first_cqe(std::chrono::milliseconds timeout) {
   io_uring_cqe* cqe = nullptr;
   if (timeout.count() < 0) {
     for (;;) {
@@ -106,72 +126,52 @@ std::vector<IOToken> URingPoller::poll(std::chrono::milliseconds timeout) {
       if (ret < 0) {
         throw_uring_err(ret, "io_uring_wait_cqe");
       }
-      break;
-    }
-  } else {
-    __kernel_timespec ts{};
-    ts.tv_sec = timeout.count() / 1000;
-    ts.tv_nsec = (timeout.count() % 1000) * 1'000'000LL;
-    for (;;) {
-      const int ret = io_uring_wait_cqe_timeout(&ring_, &cqe, &ts);
-      if (ret == -EINTR) {
-        continue;
-      }
-      if (ret == -ETIME) {
-        return {}; // timeout expired, no events
-      }
-      if (ret < 0) {
-        throw_uring_err(ret, "io_uring_wait_cqe_timeout");
-      }
-      break;
+      return true;
     }
   }
 
-  // Drain all available CQEs in one pass.
-  std::vector<IOToken> result;
-  bool woke = false;
-
-  unsigned count = 0;
-  while (io_uring_peek_cqe(&ring_, &cqe) == 0) {
-    ++count;
-    const auto data = io_uring_cqe_get_data64(cqe);
-    const auto op = decode_op(data);
-    const auto fd = decode_fd(data);
-
-    if (op == Op::kWakeup) {
-      // Drain the eventfd counter.
-      std::uint64_t val = 0;
-      [[maybe_unused]] auto sz = read(wakeup_fd_, &val, sizeof(val));
-      woke = true;
-    } else if (op == Op::kPollAdd) {
-      if (cqe->res > 0) {
-        // CQE fired: fd is ready. Remove from registered_ and emit a token.
-        if (registered_.erase(fd) > 0) {
-          result.push_back(IOToken{
-              .fd = fd,
-              .events = from_poll_mask(static_cast<std::uint32_t>(cqe->res)),
-              .user = nullptr,
-          });
-        }
-        // If fd was already erased (rem() was called before we saw the CQE),
-        // the event is silently discarded -- the waiter was already cancelled.
-      }
-      // cqe->res < 0: the poll was cancelled (POLL_REMOVE arrived first) or
-      // there was an error. Either way, silently ignore.
+  __kernel_timespec ts{};
+  ts.tv_sec = timeout.count() / 1000;
+  ts.tv_nsec = (timeout.count() % 1000) * 1'000'000LL;
+  for (;;) {
+    const int ret = io_uring_wait_cqe_timeout(&ring_, &cqe, &ts);
+    if (ret == -EINTR) {
+      continue;
     }
-    // Op::kPollRemove completions are always ignored.
-
-    io_uring_cqe_seen(&ring_, cqe);
+    if (ret == -ETIME) {
+      return false;
+    }
+    if (ret < 0) {
+      throw_uring_err(ret, "io_uring_wait_cqe_timeout");
+    }
+    return true;
   }
-  (void)count;
+}
 
-  // Re-arm the wakeup fd for the next poll() call.
-  if (woke) {
-    rearm_wakeup();
-    io_uring_submit(&ring_);
+void URingPoller::consume_cqe(const io_uring_cqe* cqe, std::vector<IOToken>& result, bool& woke) {
+  const auto data = io_uring_cqe_get_data64(cqe);
+  const auto op = decode_op(data);
+  const auto fd = decode_fd(data);
+
+  if (op == Op::kWakeup) {
+    std::uint64_t val = 0;
+    [[maybe_unused]] auto sz = read(wakeup_fd_, &val, sizeof(val));
+    woke = true;
+    return;
   }
 
-  return result;
+  if (op != Op::kPollAdd || cqe->res <= 0) {
+    return; // kPollRemove completion or cancelled/errored kPollAdd -- ignore
+  }
+
+  // Fired kPollAdd: fd is ready. Silently drop if rem() already cancelled it.
+  if (registered_.erase(fd) > 0) {
+    result.push_back(IOToken{
+        .fd = fd,
+        .events = from_poll_mask(static_cast<std::uint32_t>(cqe->res)),
+        .user = nullptr,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
