@@ -1,10 +1,10 @@
 #pragma once
 
 #include <array>
+#include <corio/error.h>
 #include <corio/io_context.h>
 #include <corio/task.h>
 #include <exception>
-#include <stdexcept>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -93,7 +93,7 @@ template <typename... Ts> Task<std::tuple<detail::GatherVal<Ts>...>> gather(Task
 
   auto* ctx = IoContext::current();
   if (ctx == nullptr) {
-    throw std::logic_error("corio::gather requires a running IoContext");
+    throw corio::NoContextError("corio::gather requires a running IoContext");
   }
   for (auto& child : children) {
     ctx->post(child.native_handle());

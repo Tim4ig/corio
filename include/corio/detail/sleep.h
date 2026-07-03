@@ -1,10 +1,10 @@
 #pragma once
 
 #include <chrono>
+#include <corio/error.h>
 #include <corio/io_context.h>
 #include <coroutine>
 #include <cstdint>
-#include <stdexcept>
 
 namespace corio::detail {
 /// Deadline-heap backed sleep awaitable; created by async_sleep(), not meant
@@ -40,7 +40,7 @@ class SleepAwaitable {
   void await_suspend(std::coroutine_handle<> handle) {
     auto* ctx = IoContext::current();
     if (ctx == nullptr) {
-      throw std::logic_error("corio::async_sleep requires a running IoContext");
+      throw corio::NoContextError("corio::async_sleep requires a running IoContext");
     }
 
     id_ = ctx->add_timer(std::chrono::steady_clock::now() + duration_, handle);

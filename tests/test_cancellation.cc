@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <corio/cancellation.h>
+#include <corio/error.h>
 #include <corio/task.h>
 #include <corio/timer.h>
 #include <stdexcept>
@@ -111,7 +112,7 @@ TEST_CASE("CancellationSource outlives CancellationToken", "[cancellation]") {
 TEST_CASE("wait() on empty CancellationToken throws", "[cancellation]") {
   const CancellationToken token;
 
-  CHECK_THROWS_AS(token.wait(), std::logic_error);
+  CHECK_THROWS_AS(token.wait(), corio::EmptyHandleError);
 }
 
 TEST_CASE("destroying a task waiting on cancellation unregisters the waiter", "[cancellation]") {

@@ -1,6 +1,7 @@
 #include "helpers.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <corio/error.h>
 #include <corio/io_context.h>
 #include <corio/task.h>
 #include <stdexcept>
@@ -81,7 +82,7 @@ TEST_CASE("watch_read from wrong thread throws", "[io_context]") {
   th.join();
 
   REQUIRE(exc != nullptr);
-  CHECK_THROWS_AS(std::rethrow_exception(exc), std::logic_error);
+  CHECK_THROWS_AS(std::rethrow_exception(exc), corio::ThreadViolationError);
 }
 
 TEST_CASE("post() from another thread wakes the event loop", "[io_context]") {
