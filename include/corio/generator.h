@@ -1,7 +1,7 @@
 #pragma once
 
-#include <coroutine>
 #include <corio/error.h>
+#include <coroutine>
 #include <exception>
 #include <optional>
 #include <utility>
