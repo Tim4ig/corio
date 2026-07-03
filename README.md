@@ -219,7 +219,7 @@ System call failures are reported with `std::system_error`.
 
 Runtime error routing is controlled by `set_error_handler()`:
 
-- With no handler installed, an exception escaping a resumed coroutine propagates out of `run()`, and an exception escaping a `spawn()`ed task is logged to stderr.
+- With no handler installed, any exception (whether from a directly posted coroutine or from a `spawn()`ed task) propagates out of `run()`.
 - With a handler installed, both are delivered to the handler and the loop keeps running, so one failing connection cannot take down the reactor.
 
 ```cpp
