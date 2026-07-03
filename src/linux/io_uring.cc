@@ -51,37 +51,38 @@ URingPoller::~URingPoller() noexcept {
 // ---------------------------------------------------------------------------
 // Poller interface
 // ---------------------------------------------------------------------------
+//
+// add()/mod()/rem() only queue SQEs; the batch is flushed by the single
+// io_uring_submit at poll() entry (or by get_sqe when the SQ fills).
 
 void URingPoller::add(int fd, IOEvent events, void* user) {
   if (registered_.contains(fd)) {
     throw std::invalid_argument("URingPoller::add: fd already registered");
   }
-  submit_poll_add(fd, events, user);
-  io_uring_submit(&ring_);
-  registered_.emplace(fd, FdInfo{events, user});
+  const auto gen = submit_poll_add(fd, events);
+  registered_.emplace(fd, FdInfo{.events = events, .user = user, .gen = gen});
 }
 
 void URingPoller::mod(int fd, IOEvent events, void* user) {
   if (const auto it = registered_.find(fd); it != registered_.end()) {
-    // fd is still in the ring -- cancel the pending SQE then re-add.
-    submit_poll_remove(fd);
-    submit_poll_add(fd, events, user);
-    io_uring_submit(&ring_);
-    it->second = FdInfo{events, user};
+    // fd is still in the ring -- cancel the pending instance then re-add.
+    submit_poll_remove(fd, it->second.gen);
+    const auto gen = submit_poll_add(fd, events);
+    it->second = FdInfo{.events = events, .user = user, .gen = gen};
   } else {
     // fd has already fired (one-shot CQE was consumed) -- just re-add.
-    submit_poll_add(fd, events, user);
-    io_uring_submit(&ring_);
-    registered_.emplace(fd, FdInfo{events, user});
+    const auto gen = submit_poll_add(fd, events);
+    registered_.emplace(fd, FdInfo{.events = events, .user = user, .gen = gen});
   }
 }
 
 void URingPoller::rem(int fd) {
-  if (registered_.erase(fd) == 0) {
-    return; // already fired; the CQE will be ignored in poll()
+  const auto it = registered_.find(fd);
+  if (it == registered_.end()) {
+    return; // already fired; a stale CQE is dropped by its generation
   }
-  submit_poll_remove(fd);
-  io_uring_submit(&ring_);
+  submit_poll_remove(fd, it->second.gen);
+  registered_.erase(it);
 }
 
 void URingPoller::wake() noexcept {
@@ -149,7 +150,6 @@ bool URingPoller::wait_for_first_cqe(std::chrono::milliseconds timeout) {
 void URingPoller::consume_cqe(const io_uring_cqe* cqe, std::vector<IOToken>& result, bool& woke) {
   const auto data = io_uring_cqe_get_data64(cqe);
   const auto op = decode_op(data);
-  const auto fd = decode_fd(data);
 
   if (op == Op::kWakeup) {
     std::uint64_t val = 0;
@@ -157,19 +157,22 @@ void URingPoller::consume_cqe(const io_uring_cqe* cqe, std::vector<IOToken>& res
     woke = true;
     return;
   }
-
-  if (op != Op::kPollAdd || cqe->res <= 0) {
-    return; // kPollRemove completion or cancelled/errored kPollAdd -- ignore
+  if (op != Op::kPollAdd) {
+    return; // kPollRemove completion -- nothing to do
   }
 
-  // Fired kPollAdd: fd is ready. Silently drop if rem() already cancelled it.
-  if (registered_.erase(fd) > 0) {
-    result.push_back(IOToken{
-        .fd = fd,
-        .events = from_poll_mask(static_cast<std::uint32_t>(cqe->res)),
-        .user = nullptr,
-    });
+  const auto fd = decode_fd(data);
+  const auto it = registered_.find(fd);
+  if (it == registered_.end() || it->second.gen != decode_gen(data)) {
+    return; // stale instance: cancelled, replaced by mod(), or recycled fd
   }
+  registered_.erase(it);
+
+  // res > 0 carries the fired poll mask; res <= 0 is a failed arm (EBADF,
+  // ENOMEM, ...) -- surface it as kErr so the waiter wakes and its syscall
+  // retry reports the real errno instead of hanging forever.
+  const auto events = cqe->res > 0 ? from_poll_mask(static_cast<std::uint32_t>(cqe->res)) : IOEvent::kErr;
+  result.push_back(IOToken{.fd = fd, .events = events, .user = nullptr});
 }
 
 // ---------------------------------------------------------------------------
@@ -218,22 +221,24 @@ io_uring_sqe* URingPoller::get_sqe() {
   return sqe;
 }
 
-void URingPoller::submit_poll_add(int fd, IOEvent events, void* /*user*/) {
+std::uint32_t URingPoller::submit_poll_add(int fd, IOEvent events) {
+  const auto gen = ++next_gen_ & static_cast<std::uint32_t>(kGenMask);
   auto* sqe = get_sqe();
   io_uring_prep_poll_add(sqe, fd, to_poll_mask(events));
-  io_uring_sqe_set_data64(sqe, encode(Op::kPollAdd, fd));
+  io_uring_sqe_set_data64(sqe, encode(Op::kPollAdd, fd, gen));
+  return gen;
 }
 
-void URingPoller::submit_poll_remove(int fd) {
+void URingPoller::submit_poll_remove(int fd, std::uint32_t gen) {
   auto* sqe = get_sqe();
-  io_uring_prep_poll_remove(sqe, encode(Op::kPollAdd, fd));
-  io_uring_sqe_set_data64(sqe, encode(Op::kPollRemove, fd));
+  io_uring_prep_poll_remove(sqe, encode(Op::kPollAdd, fd, gen));
+  io_uring_sqe_set_data64(sqe, encode(Op::kPollRemove, fd, gen));
 }
 
 void URingPoller::rearm_wakeup() {
   auto* sqe = get_sqe();
   io_uring_prep_poll_add(sqe, wakeup_fd_, POLLIN);
-  io_uring_sqe_set_data64(sqe, encode(Op::kWakeup, wakeup_fd_));
+  io_uring_sqe_set_data64(sqe, encode(Op::kWakeup, wakeup_fd_, 0));
 }
 
 } // namespace corio::detail

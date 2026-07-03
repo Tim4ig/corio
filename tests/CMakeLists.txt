@@ -30,6 +30,9 @@ set(CORIO_TEST_SOURCES
     test_io_context.cc
     test_cancellation.cc
     test_context_var.cc
+    test_socket.cc
+    test_spawn.cc
+    test_lifetime.cc
 )
 
 add_executable(corio_tests ${CORIO_TEST_SOURCES})

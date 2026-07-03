@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 project(corio VERSION 0.1.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 26)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -28,10 +28,10 @@ set(CORIO_SOURCES
     include/corio/detail/context.h
     include/corio/detail/platform.h
     include/corio/detail/poller.h
+    include/corio/detail/sleep.h
     include/corio/detail/token.h
     include/corio/detail/types.h
     include/corio/detail/linux/io_uring.h
-    include/corio/detail/linux/timer.h
 )
 
 option(BUILD_SHARED_LIBS "Build shared library" ON)
