@@ -27,6 +27,10 @@ template <typename T> class ContextVar {
     auto& ctx = IoContext::current_context();
     if (!ctx) {
       ctx = std::make_shared<detail::ContextMap>();
+    } else if (ctx.use_count() > 1) {
+      // Copy-on-write: snapshots taken at post()/watch time share the map,
+      // so mutate a private copy to keep sibling tasks isolated.
+      ctx = std::make_shared<detail::ContextMap>(*ctx);
     }
     (*ctx)[key()] = std::move(value);
   }

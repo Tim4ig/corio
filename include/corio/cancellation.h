@@ -1,6 +1,5 @@
 #pragma once
 
-#include <algorithm>
 #include <atomic>
 #include <corio/io_context.h>
 #include <coroutine>
@@ -129,10 +128,15 @@ class CancellationToken {
         return;
       }
 
-      std::scoped_lock lock(state->mutex);
-      const auto waiter = std::pair{ctx, handle};
-      auto& waiters = state->waiters;
-      waiters.erase(std::remove(waiters.begin(), waiters.end(), waiter), waiters.end());
+      {
+        std::scoped_lock lock(state->mutex);
+        std::erase(state->waiters, std::pair{ctx, handle});
+      }
+      // Cancellation may have fired already and queued the resume; scrub it
+      // so the destroyed frame is never resumed.
+      if (ctx != nullptr) {
+        (void)ctx->cancel_posted(handle);
+      }
       registered = false;
     }
   };

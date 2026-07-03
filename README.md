@@ -4,21 +4,22 @@ CorIO is a small C++ coroutine runtime for Linux. It provides the low-level piec
 
 - a single-threaded `IoContext` event loop
 - `Task<T>` coroutine results
+- `spawn()` for detached, self-owning tasks with exception routing
 - `Generator<T>` async sequences
 - `gather()` for concurrent task composition
-- timerfd-backed `async_sleep()`
+- `async_sleep()` backed by a deadline heap (no fd or syscall per sleep)
 - cancellation tokens
 - task-local context variables
-- an epoll-backed readiness poller
+- an io_uring-backed readiness poller with batched submissions
 
 The project is intentionally narrow. It does not implement sockets or HTTP itself. Those layers should be built on top of `IoContext::watch_read()`, `IoContext::watch_write()`, cancellation, and the task primitives.
 
 ## Requirements
 
-- Linux
+- Linux with io_uring support (kernel 5.1+) and liburing
 - CMake 3.28 or newer
 - Ninja
-- A C++26 compiler
+- A C++23 compiler
 - Catch2 3 for tests, either installed or fetched by CMake
 
 ## Build
@@ -63,7 +64,7 @@ target_link_libraries(app PRIVATE corio::corio)
 
 ## Basic Usage
 
-An application owns an `IoContext`, creates root tasks, posts their coroutine handles, and runs the loop.
+An application owns an `IoContext`, spawns root tasks, and runs the loop.
 
 ```cpp
 #include <corio/io_context.h>
@@ -83,14 +84,12 @@ corio::Task<> worker(corio::IoContext& ctx) {
 
 int main() {
   auto ctx = corio::make_io_context();
-  auto task = worker(ctx);
-
-  ctx.post(task.native_handle());
+  ctx.spawn(worker(ctx));
   ctx.run();
 }
 ```
 
-`Task` owns its coroutine frame. A task must outlive any handle posted to `IoContext`.
+`spawn()` takes ownership of the task: the frame is destroyed automatically on completion, and an escaping exception is routed to the error handler (see Error Model). For manual scheduling, `ctx.post(task.native_handle())` is still available; in that mode the `Task` must outlive any posted handle.
 
 ## Concurrent Tasks
 
@@ -140,11 +139,11 @@ void request_stop(corio::CancellationSource& source) {
 }
 ```
 
-Cancellation waiters unregister themselves if the waiting task is destroyed before cancellation is requested.
+Cancellation waiters unregister themselves if the waiting task is destroyed before cancellation is requested, including the window where cancellation already fired but the resume is still queued.
 
 ## Task-Local Context
 
-`ContextVar<T>` stores per-task values. Child tasks inherit a snapshot of the parent context at `IoContext::post()` time.
+`ContextVar<T>` stores per-task values. Child tasks inherit a snapshot of the parent context at `IoContext::post()`/`spawn()` time. Snapshots are copy-on-write: the map is shared until a task calls `set()`.
 
 ```cpp
 #include <corio/context_var.h>
@@ -177,6 +176,7 @@ ctx.watch_read(fd, coroutine);
 ctx.watch_write(fd, coroutine);
 ctx.cancel_read(fd, coroutine);
 ctx.cancel_write(fd, coroutine);
+ctx.cancel_posted(coroutine);
 ctx.unwatch(fd);
 ```
 
@@ -188,19 +188,48 @@ These calls are the intended base for socket operations. A socket wrapper should
 - unregister pending readiness on operation cancellation or destruction
 - close and unwatch file descriptors deterministically
 
-`IoContext` is single-threaded. Methods that mutate fd state must be called from the owning thread unless the method documentation explicitly says it is thread-safe. `post()` and `stop()` are thread-safe.
+The canonical awaitable destructor pattern (see `tests/test_socket.cc`):
+
+```cpp
+~WaitReadable() {
+  if (registered && !ctx->cancel_read(fd, handle)) {
+    // The event already fired; remove the queued resume so the destroyed
+    // frame is never resumed.
+    (void)ctx->cancel_posted(handle);
+  }
+}
+```
+
+A waiter whose fd fails to arm (for example the fd was already closed) is woken with an error indication instead of hanging; the following syscall retry reports the real `errno`.
+
+**Contract: always `unwatch()`/cancel before `close()`.** Closing a watched fd frees its number for reuse; a subsequently created file (by you, the ring, or a library) can receive the same number, and the pending readiness registration would silently watch the wrong file. This is inherent to fd-based readiness APIs; CorIO's internal generation counters protect its own bookkeeping but cannot detect number reuse.
+
+`IoContext` is single-threaded. Methods that mutate fd state must be called from the owning thread unless the method documentation explicitly says it is thread-safe. `post()`, `spawn()`, and `stop()` are thread-safe. `stop()` is permanent: a stopped context never blocks for I/O again. The `IoContext` must outlive every task, timer, cancellation waiter, and cross-thread `stop()`/`post()` caller that references it.
 
 ## Error Model
 
 Misuse is reported with `std::logic_error` where practical:
 
-- awaiting or resuming an empty `Task`
+- awaiting or resuming an empty `Task`, or spawning one
 - awaiting an empty `Generator`
 - waiting on a moved-from `CancellationToken`
 - using `async_sleep()` or `gather()` outside a running `IoContext`
 
 System call failures are reported with `std::system_error`.
 
+Runtime error routing is controlled by `set_error_handler()`:
+
+- With no handler installed, an exception escaping a resumed coroutine propagates out of `run()`, and an exception escaping a `spawn()`ed task is logged to stderr.
+- With a handler installed, both are delivered to the handler and the loop keeps running, so one failing connection cannot take down the reactor.
+
+```cpp
+ctx.set_error_handler([](std::exception_ptr err) {
+  // log it; must not throw
+});
+```
+
 ## Project Status
 
 CorIO is a runtime foundation, not a complete networking stack. The current scope is suitable for implementing higher-level socket and HTTP libraries after defining their ownership, timeout, cancellation, and close semantics on top of the primitives in this repository.
+
+Planned after the IO layer exists: multishot poll (`IORING_POLL_ADD_MULTI`) with persistent interest registration, which changes the current one-shot watch contract and is therefore deferred until the IO layer's needs are concrete.

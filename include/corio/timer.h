@@ -1,7 +1,7 @@
 #pragma once
 
 #include <chrono>
-#include <corio/detail/platform.h>
+#include <corio/detail/sleep.h>
 
 namespace corio {
 /// @brief Suspend the current coroutine for at least dur.
