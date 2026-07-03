@@ -1,9 +1,9 @@
 #pragma once
 
+#include <corio/error.h>
 #include <coroutine>
 #include <exception>
 #include <optional>
-#include <stdexcept>
 #include <utility>
 
 namespace corio {
@@ -131,7 +131,7 @@ template <typename T> class Generator {
 
     Handle await_suspend(std::coroutine_handle<> consumer) {
       if (!gen) {
-        throw std::logic_error("corio::Generator: cannot await an empty generator");
+        throw corio::EmptyHandleError("corio::Generator: cannot await an empty generator");
       }
       gen.promise().consumer = consumer;
       return gen;
@@ -139,7 +139,7 @@ template <typename T> class Generator {
 
     std::optional<T> await_resume() {
       if (!gen) {
-        throw std::logic_error("corio::Generator: cannot resume an empty generator");
+        throw corio::EmptyHandleError("corio::Generator: cannot resume an empty generator");
       }
       auto& promise = gen.promise();
       if (promise.exception) {

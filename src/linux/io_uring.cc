@@ -1,19 +1,19 @@
 #include <cerrno>
 #include <corio/detail/linux/io_uring.h>
+#include <corio/error.h>
 #include <poll.h>
 #include <sys/eventfd.h>
-#include <system_error>
 #include <unistd.h>
 
 namespace corio::detail {
 namespace {
 
 [[noreturn]] void throw_uring_err(int neg_err, const char* what) {
-  throw std::system_error(-neg_err, std::generic_category(), what);
+  throw corio::IoUringError(-neg_err, std::generic_category(), what);
 }
 
 [[noreturn]] void throw_errno(int err, const char* what) {
-  throw std::system_error(err, std::generic_category(), what);
+  throw corio::IoUringError(err, std::generic_category(), what);
 }
 
 } // namespace
@@ -57,7 +57,7 @@ URingPoller::~URingPoller() noexcept {
 
 void URingPoller::add(int fd, IOEvent events, void* user) {
   if (registered_.contains(fd)) {
-    throw std::invalid_argument("URingPoller::add: fd already registered");
+    throw corio::FdConflictError("URingPoller::add: fd already registered");
   }
   const auto gen = submit_poll_add(fd, events);
   registered_.emplace(fd, FdInfo{.events = events, .user = user, .gen = gen});
@@ -216,7 +216,7 @@ io_uring_sqe* URingPoller::get_sqe() {
   io_uring_submit(&ring_);
   sqe = io_uring_get_sqe(&ring_);
   if (sqe == nullptr) {
-    throw std::runtime_error("URingPoller: submission queue exhausted");
+    throw corio::InternalError("URingPoller: submission queue exhausted");
   }
   return sqe;
 }

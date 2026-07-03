@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <corio/context_var.h>
+#include <corio/error.h>
 #include <corio/io_context.h>
 #include <corio/task.h>
 #include <corio/timer.h>
@@ -91,7 +92,7 @@ TEST_CASE("spawn routes task exceptions to the error handler", "[spawn]") {
 
 TEST_CASE("spawn on an empty task throws", "[spawn]") {
   auto ctx = make_io_context();
-  CHECK_THROWS_AS(ctx.spawn(Task<>{}), std::logic_error);
+  CHECK_THROWS_AS(ctx.spawn(Task<>{}), corio::EmptyHandleError);
 }
 
 TEST_CASE("spawned task inherits the spawner's context", "[spawn]") {

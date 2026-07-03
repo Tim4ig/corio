@@ -1,9 +1,9 @@
 #pragma once
 
+#include <corio/error.h>
 #include <coroutine>
 #include <exception>
 #include <optional>
-#include <stdexcept>
 #include <type_traits>
 #include <utility>
 
@@ -103,7 +103,7 @@ template <typename T> class Task {
 
   Handle await_suspend(std::coroutine_handle<> caller) {
     if (!handle_) {
-      throw std::logic_error("corio::Task: cannot await an empty task");
+      throw corio::EmptyHandleError("corio::Task: cannot await an empty task");
     }
     handle_.promise().continuation = caller;
     return handle_;
@@ -111,7 +111,7 @@ template <typename T> class Task {
 
   T await_resume() {
     if (!handle_) {
-      throw std::logic_error("corio::Task: cannot resume an empty task");
+      throw corio::EmptyHandleError("corio::Task: cannot resume an empty task");
     }
     auto& promise = handle_.promise();
     if (promise.exception) {
@@ -128,7 +128,7 @@ template <typename T> class Task {
   ///        entry point). Caller is responsible for keeping the Task alive.
   void resume() {
     if (!handle_) {
-      throw std::logic_error("corio::Task: cannot resume an empty task");
+      throw corio::EmptyHandleError("corio::Task: cannot resume an empty task");
     }
     handle_.resume();
   }

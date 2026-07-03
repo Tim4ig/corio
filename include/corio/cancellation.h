@@ -1,11 +1,11 @@
 #pragma once
 
 #include <atomic>
+#include <corio/error.h>
 #include <corio/io_context.h>
 #include <coroutine>
 #include <memory>
 #include <mutex>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -104,7 +104,7 @@ class CancellationToken {
     void await_suspend(std::coroutine_handle<> coroutine) {
       ctx = IoContext::current();
       if (ctx == nullptr) {
-        throw std::logic_error("corio::CancellationToken::wait requires a running IoContext");
+        throw corio::NoContextError("corio::CancellationToken::wait requires a running IoContext");
       }
 
       std::scoped_lock lock(state->mutex);
@@ -143,7 +143,7 @@ class CancellationToken {
 
   [[nodiscard]] WaitAwaitable wait() const {
     if (!state_) {
-      throw std::logic_error("corio::CancellationToken::wait called on an empty token");
+      throw corio::EmptyHandleError("corio::CancellationToken::wait called on an empty token");
     }
     return WaitAwaitable{state_};
   }

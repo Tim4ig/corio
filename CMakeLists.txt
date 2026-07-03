@@ -20,6 +20,7 @@ set(CORIO_SOURCES
     # Headers listed so IDEs include them in the project index
     include/corio/cancellation.h
     include/corio/context_var.h
+    include/corio/error.h
     include/corio/gather.h
     include/corio/generator.h
     include/corio/io_context.h

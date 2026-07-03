@@ -1,6 +1,7 @@
 #include "helpers.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <corio/error.h>
 #include <corio/generator.h>
 #include <corio/task.h>
 #include <stdexcept>
@@ -91,5 +92,5 @@ TEST_CASE("Awaiting an empty Generator throws logic_error", "[generator]") {
     Generator<int> gen;
     co_await gen.next();
   };
-  CHECK_THROWS_AS(test::run_task<void>(fn()), std::logic_error);
+  CHECK_THROWS_AS(test::run_task<void>(fn()), corio::EmptyHandleError);
 }

@@ -1,9 +1,9 @@
 #include <algorithm>
 #include <corio/detail/platform.h>
+#include <corio/error.h>
 #include <corio/io_context.h>
 #include <exception>
 #include <iostream>
-#include <stdexcept>
 #include <string>
 
 namespace corio {
@@ -125,7 +125,7 @@ void IoContext::post(std::coroutine_handle<> handle) {
 
 void IoContext::spawn(Task<> task) {
   if (!task.native_handle()) {
-    throw std::logic_error("IoContext::spawn: cannot spawn an empty task");
+    throw corio::EmptyHandleError("IoContext::spawn: cannot spawn an empty task");
   }
   const auto detached = run_detached(this, std::move(task));
   post(detached.handle);
@@ -158,7 +158,7 @@ void IoContext::watch_read(int fd, std::coroutine_handle<> handle) {
   auto [it, inserted] = fd_states_.emplace(fd, FdState{});
   auto& state = it->second;
   if (state.reader) {
-    throw std::logic_error("IoContext::watch_read: fd already has a pending reader");
+    throw corio::FdConflictError("IoContext::watch_read: fd already has a pending reader");
   }
   state.reader = handle;
   state.reader_ctx = snapshot_context();
@@ -175,7 +175,7 @@ void IoContext::watch_write(int fd, std::coroutine_handle<> handle) {
   auto [it, inserted] = fd_states_.emplace(fd, FdState{});
   auto& state = it->second;
   if (state.writer) {
-    throw std::logic_error("IoContext::watch_write: fd already has a pending writer");
+    throw corio::FdConflictError("IoContext::watch_write: fd already has a pending writer");
   }
   state.writer = handle;
   state.writer_ctx = snapshot_context();
@@ -288,9 +288,9 @@ void IoContext::process_token(const IOToken& token) {
 
 void IoContext::check_thread() const {
   if (std::this_thread::get_id() != owner_thread_) {
-    throw std::logic_error("IoContext: method called from a thread other than the owning thread "
-                           "(logical id " +
-                           std::to_string(tls_thread_id) + ")");
+    throw corio::ThreadViolationError("IoContext: method called from a thread other than the owning thread "
+                                      "(logical id " +
+                                      std::to_string(tls_thread_id) + ")");
   }
 }
 
