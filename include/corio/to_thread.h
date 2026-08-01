@@ -53,7 +53,7 @@ template <typename F, typename T> class ToThreadAwaitable {
   void await_suspend(std::coroutine_handle<> handle) {
     auto* ctx = IoContext::current();
     if (ctx == nullptr) {
-      throw corio::NoContextError("corio::to_thread requires a running IoContext");
+      throw NoContextError("corio::to_thread requires a running IoContext");
     }
 
     auto state = state_;

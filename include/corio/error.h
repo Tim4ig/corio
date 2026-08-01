@@ -41,7 +41,7 @@ class Error {
 };
 
 /// Base for API misuse errors: violated preconditions, wrong thread, etc.
-/// Also catchable as std::logic_error.
+/// Also, catchable as std::logic_error.
 class LogicError : public Error, public std::logic_error {
  public:
   using std::logic_error::logic_error;
@@ -50,7 +50,7 @@ class LogicError : public Error, public std::logic_error {
   }
 };
 
-/// Base for OS-level failures. Also catchable as std::system_error.
+/// Base for OS-level failures. Also, catchable as std::system_error.
 class SystemError : public Error, public std::system_error {
  public:
   using std::system_error::system_error;

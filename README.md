@@ -1,6 +1,7 @@
 # CorIO
 
-CorIO is a small C++ coroutine runtime for Linux. It provides the low-level pieces needed to build asynchronous socket clients, socket servers, and HTTP libraries:
+CorIO is a small C++ coroutine runtime for Linux. It provides the low-level pieces needed to build asynchronous socket
+clients, socket servers, and HTTP libraries:
 
 - a single-threaded `IoContext` event loop
 - `Task<T>` coroutine results
@@ -14,7 +15,8 @@ CorIO is a small C++ coroutine runtime for Linux. It provides the low-level piec
 - task-local context variables
 - an io_uring-backed readiness poller with batched submissions
 
-The project is intentionally narrow. It does not implement sockets or HTTP itself. Those layers should be built on top of `IoContext::watch_read()`, `IoContext::watch_write()`, cancellation, and the task primitives.
+The project is intentionally narrow. It does not implement sockets or HTTP itself. Those layers should be built on top
+of `IoContext::watch_read()`, `IoContext::watch_write()`, cancellation, and the task primitives.
 
 ## Requirements
 
@@ -47,7 +49,8 @@ cmake --build --preset asan
 ctest --preset asan
 ```
 
-The `asan` preset enables AddressSanitizer and UndefinedBehaviorSanitizer. LeakSanitizer is disabled in the preset because it is not reliable in ptrace-based execution environments.
+The `asan` preset enables AddressSanitizer and UndefinedBehaviorSanitizer. LeakSanitizer is disabled in the preset
+because it is not reliable in ptrace-based execution environments.
 
 ## Install
 
@@ -91,7 +94,9 @@ int main() {
 }
 ```
 
-`spawn()` takes ownership of the task: the frame is destroyed automatically on completion, and an escaping exception is routed to the error handler (see Error Model). For manual scheduling, `ctx.post(task.native_handle())` is still available; in that mode the `Task` must outlive any posted handle.
+`spawn()` takes ownership of the task: the frame is destroyed automatically on completion, and an escaping exception is
+routed to the error handler (see Error Model). For manual scheduling, `ctx.post(task.native_handle())` is still
+available; in that mode the `Task` must outlive any posted handle.
 
 ## Concurrent Tasks
 
@@ -124,7 +129,9 @@ corio::Task<int> combined() {
 
 If one child throws, `gather()` waits for all children and rethrows the first captured exception.
 
-`race()` schedules all tasks and resumes as soon as the first one finishes, by value or exception. The result is a `std::variant` tagged by argument position; every task still in flight is abandoned (its coroutine is destroyed while suspended). This is the composition primitive for per-operation timeouts:
+`race()` schedules all tasks and resumes as soon as the first one finishes, by value or exception. The result is a
+`std::variant` tagged by argument position; every task still in flight is abandoned (its coroutine is destroyed while
+suspended). This is the composition primitive for per-operation timeouts:
 
 ```cpp
 #include <corio/race.h>
@@ -149,11 +156,15 @@ corio::Task<> with_timeout(corio::Task<int> op) {
 }
 ```
 
-Abandoning a losing task is only safe to the extent every awaitable it suspends on follows corio's cancel-on-destroy contract (see I/O Integration below) -- true for `async_sleep`, `CancellationToken::wait()`, `to_thread()`, and any I/O awaitable built the way this README recommends.
+Abandoning a losing task is only safe to the extent every awaitable it suspends on follows corio's cancel-on-destroy
+contract (see I/O Integration below) -- true for `async_sleep`, `CancellationToken::wait()`, `to_thread()`, and any I/O
+awaitable built the way this README recommends.
 
 ## Blocking Calls
 
-`to_thread()` runs a nullary callable on a thread pool and resumes the caller with its result, without blocking the `IoContext`. The default pool (`RawThreadPool`) spawns one raw, detached `std::thread` per call -- no reuse, no bound on concurrency, just enough to keep an occasional blocking call (a sync DB driver, a legacy API) off the reactor thread.
+`to_thread()` runs a nullary callable on a thread pool and resumes the caller with its result, without blocking the
+`IoContext`. The default pool (`RawThreadPool`) spawns one raw, detached `std::thread` per call -- no reuse, no bound on
+concurrency, just enough to keep an occasional blocking call (a sync DB driver, a legacy API) off the reactor thread.
 
 ```cpp
 #include <corio/task.h>
@@ -166,7 +177,8 @@ corio::Task<std::string> hash_file(std::string path) {
 }
 ```
 
-Install a real pool by implementing `corio::detail::ThreadPool` (a single `submit(std::function<void()>)`) and calling `ctx.set_thread_pool(pool)` before any `to_thread()` call that should observe it:
+Install a real pool by implementing `corio::detail::ThreadPool` (a single `submit(std::function<void()>)`) and calling
+`ctx.set_thread_pool(pool)` before any `to_thread()` call that should observe it:
 
 ```cpp
 class MyPool : public corio::detail::ThreadPool {
@@ -180,7 +192,9 @@ auto ctx = corio::make_io_context();
 ctx.set_thread_pool(std::make_shared<MyPool>());
 ```
 
-An exception thrown by the callable is rethrown at the `co_await` point, on the `IoContext` thread. If the awaiting coroutine is abandoned (e.g. it lost a `race()`) before the job finishes, the job detects this and drops its resume instead of touching the destroyed frame; the pool itself has no way to interrupt a callable already running.
+An exception thrown by the callable is rethrown at the `co_await` point, on the `IoContext` thread. If the awaiting
+coroutine is abandoned (e.g. it lost a `race()`) before the job finishes, the job detects this and drops its resume
+instead of touching the destroyed frame; the pool itself has no way to interrupt a callable already running.
 
 ## Cancellation
 
@@ -199,11 +213,13 @@ void request_stop(corio::CancellationSource& source) {
 }
 ```
 
-Cancellation waiters unregister themselves if the waiting task is destroyed before cancellation is requested, including the window where cancellation already fired but the resume is still queued.
+Cancellation waiters unregister themselves if the waiting task is destroyed before cancellation is requested, including
+the window where cancellation already fired but the resume is still queued.
 
 ## Task-Local Context
 
-`ContextVar<T>` stores per-task values. Child tasks inherit a snapshot of the parent context at `IoContext::post()`/`spawn()` time. Snapshots are copy-on-write: the map is shared until a task calls `set()`.
+`ContextVar<T>` stores per-task values. Child tasks inherit a snapshot of the parent context at `IoContext::post()`/
+`spawn()` time. Snapshots are copy-on-write: the map is shared until a task calls `set()`.
 
 ```cpp
 #include <corio/context_var.h>
@@ -260,11 +276,18 @@ The canonical awaitable destructor pattern (see `tests/test_socket.cc`):
 }
 ```
 
-A waiter whose fd fails to arm (for example the fd was already closed) is woken with an error indication instead of hanging; the following syscall retry reports the real `errno`.
+A waiter whose fd fails to arm (for example the fd was already closed) is woken with an error indication instead of
+hanging; the following syscall retry reports the real `errno`.
 
-**Contract: always `unwatch()`/cancel before `close()`.** Closing a watched fd frees its number for reuse; a subsequently created file (by you, the ring, or a library) can receive the same number, and the pending readiness registration would silently watch the wrong file. This is inherent to fd-based readiness APIs; CorIO's internal generation counters protect its own bookkeeping but cannot detect number reuse.
+**Contract: always `unwatch()`/cancel before `close()`.** Closing a watched fd frees its number for reuse; a
+subsequently created file (by you, the ring, or a library) can receive the same number, and the pending readiness
+registration would silently watch the wrong file. This is inherent to fd-based readiness APIs; CorIO's internal
+generation counters protect its own bookkeeping but cannot detect number reuse.
 
-`IoContext` is single-threaded. Methods that mutate fd state must be called from the owning thread unless the method documentation explicitly says it is thread-safe. `post()`, `spawn()`, and `stop()` are thread-safe. `stop()` is permanent: a stopped context never blocks for I/O again. The `IoContext` must outlive every task, timer, cancellation waiter, and cross-thread `stop()`/`post()` caller that references it.
+`IoContext` is single-threaded. Methods that mutate fd state must be called from the owning thread unless the method
+documentation explicitly says it is thread-safe. `post()`, `spawn()`, and `stop()` are thread-safe. `stop()` is
+permanent: a stopped context never blocks for I/O again. The `IoContext` must outlive every task, timer, cancellation
+waiter, and cross-thread `stop()`/`post()` caller that references it.
 
 ## Error Model
 
@@ -279,8 +302,10 @@ System call failures are reported with `std::system_error`.
 
 Runtime error routing is controlled by `set_error_handler()`:
 
-- With no handler installed, any exception (whether from a directly posted coroutine or from a `spawn()`ed task) propagates out of `run()`.
-- With a handler installed, both are delivered to the handler and the loop keeps running, so one failing connection cannot take down the reactor.
+- With no handler installed, any exception (whether from a directly posted coroutine or from a `spawn()`ed task)
+  propagates out of `run()`.
+- With a handler installed, both are delivered to the handler and the loop keeps running, so one failing connection
+  cannot take down the reactor.
 
 ```cpp
 ctx.set_error_handler([](std::exception_ptr err) {
@@ -290,6 +315,9 @@ ctx.set_error_handler([](std::exception_ptr err) {
 
 ## Project Status
 
-CorIO is a runtime foundation, not a complete networking stack. The current scope is suitable for implementing higher-level socket and HTTP libraries after defining their ownership, timeout, cancellation, and close semantics on top of the primitives in this repository.
+CorIO is a runtime foundation, not a complete networking stack. The current scope is suitable for implementing
+higher-level socket and HTTP libraries after defining their ownership, timeout, cancellation, and close semantics on top
+of the primitives in this repository.
 
-Planned after the IO layer exists: multishot poll (`IORING_POLL_ADD_MULTI`) with persistent interest registration, which changes the current one-shot watch contract and is therefore deferred until the IO layer's needs are concrete.
+Planned after the IO layer exists: multishot poll (`IORING_POLL_ADD_MULTI`) with persistent interest registration, which
+changes the current one-shot watch contract and is therefore deferred until the IO layer's needs are concrete.

@@ -53,37 +53,62 @@
     }
   ],
   "buildPresets": [
-    { "name": "debug-gcc",    "configurePreset": "debug-gcc" },
-    { "name": "release-gcc",  "configurePreset": "release-gcc" },
-    { "name": "debug-clang",  "configurePreset": "debug-clang" },
-    { "name": "release-clang","configurePreset": "release-clang" },
-    { "name": "asan",         "configurePreset": "asan" }
+    {
+      "name": "debug-gcc",
+      "configurePreset": "debug-gcc"
+    },
+    {
+      "name": "release-gcc",
+      "configurePreset": "release-gcc"
+    },
+    {
+      "name": "debug-clang",
+      "configurePreset": "debug-clang"
+    },
+    {
+      "name": "release-clang",
+      "configurePreset": "release-clang"
+    },
+    {
+      "name": "asan",
+      "configurePreset": "asan"
+    }
   ],
   "testPresets": [
     {
       "name": "debug-gcc",
       "configurePreset": "debug-gcc",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "release-gcc",
       "configurePreset": "release-gcc",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "debug-clang",
       "configurePreset": "debug-clang",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "release-clang",
       "configurePreset": "release-clang",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "asan",
       "configurePreset": "asan",
-      "output": { "outputOnFailure": true },
+      "output": {
+        "outputOnFailure": true
+      },
       "environment": {
         "ASAN_OPTIONS": "abort_on_error=1",
         "LSAN_OPTIONS": "detect_leaks=0",

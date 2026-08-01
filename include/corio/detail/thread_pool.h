@@ -21,7 +21,7 @@ class ThreadPool {
 
   /// @brief Run job on a worker, off the calling thread.
   ///        job must not throw: to_thread() always wraps the user callable
-  ///        in a try/catch before it reaches here, but a hand-written job
+  ///        in a try/catch before it reaches here, but a handwritten job
   ///        submitted directly to a ThreadPool is responsible for its own
   ///        exception safety.
   virtual void submit(std::function<void()> job) = 0;

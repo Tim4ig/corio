@@ -120,7 +120,7 @@ template <typename... Ts> Task<std::variant<detail::GatherVal<Ts>...>> race(Task
 
   auto* ctx = IoContext::current();
   if (ctx == nullptr) {
-    throw corio::NoContextError("corio::race requires a running IoContext");
+    throw NoContextError("corio::race requires a running IoContext");
   }
   for (auto& child : children) {
     ctx->post(child.native_handle());

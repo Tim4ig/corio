@@ -91,7 +91,7 @@ template <typename... Ts> Task<std::tuple<detail::GatherVal<Ts>...>> gather(Task
 
   auto* ctx = IoContext::current();
   if (ctx == nullptr) {
-    throw corio::NoContextError("corio::gather requires a running IoContext");
+    throw NoContextError("corio::gather requires a running IoContext");
   }
   for (auto& child : children) {
     ctx->post(child.native_handle());
