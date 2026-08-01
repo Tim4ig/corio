@@ -56,6 +56,15 @@ class CancellationToken {
  public:
   CancellationToken() = default;
 
+  /// @brief True when this token is bound to a CancellationSource. A
+  ///        default-constructed token is never bound and never fires;
+  ///        checking this avoids the EmptyHandleError that wait() throws
+  ///        on an unbound token, e.g. when an optional cancel token is only
+  ///        conditionally raced against other work.
+  [[nodiscard]] bool valid() const noexcept {
+    return state_ != nullptr;
+  }
+
   [[nodiscard]] bool is_cancellation_requested() const noexcept {
     return state_ && state_->cancelled.load(std::memory_order_acquire);
   }
