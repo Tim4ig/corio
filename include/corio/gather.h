@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <corio/detail/void_result.h>
 #include <corio/error.h>
 #include <corio/io_context.h>
 #include <corio/task.h>
@@ -11,9 +12,6 @@
 
 namespace corio {
 namespace detail {
-/// Maps void to monostate so every element of the result tuple is concrete.
-template <typename T> using GatherVal = std::conditional_t<std::is_void_v<T>, std::monostate, T>;
-
 /// Shared state in the gather coroutine's frame.
 /// gather_child holds references into this struct -- safe because gather is
 /// suspended for the entire lifetime of its children.
@@ -93,7 +91,7 @@ template <typename... Ts> Task<std::tuple<detail::GatherVal<Ts>...>> gather(Task
 
   auto* ctx = IoContext::current();
   if (ctx == nullptr) {
-    throw corio::NoContextError("corio::gather requires a running IoContext");
+    throw NoContextError("corio::gather requires a running IoContext");
   }
   for (auto& child : children) {
     ctx->post(child.native_handle());

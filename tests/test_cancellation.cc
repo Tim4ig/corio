@@ -32,6 +32,14 @@ TEST_CASE("request_cancellation is idempotent", "[cancellation]") {
   CHECK(src.is_cancellation_requested());
 }
 
+TEST_CASE("valid() distinguishes a bound token from a default-constructed one", "[cancellation]") {
+  const CancellationToken empty;
+  CHECK_FALSE(empty.valid());
+
+  const CancellationSource src;
+  CHECK(src.token().valid());
+}
+
 TEST_CASE("co_await token.wait() suspends until request_cancellation()", "[cancellation]") {
   const CancellationSource src;
   const auto token = src.token();

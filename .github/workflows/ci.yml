@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches: [ main, dev ]
   pull_request:
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
 
       - name: Configure
         env:
-          CC:  ${{ matrix.cc }}
+          CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cxx }}
         run: cmake --preset ${{ matrix.preset }}
 
@@ -72,7 +72,7 @@ jobs:
 
       - name: Configure
         env:
-          CC:  gcc-14
+          CC: gcc-14
           CXX: g++-14
         run: cmake --preset asan
 
@@ -101,7 +101,7 @@ jobs:
 
       - name: Configure (for compile_commands.json)
         env:
-          CC:  clang-18
+          CC: clang-18
           CXX: clang++-18
         run: cmake --preset debug-clang
 

@@ -4,6 +4,7 @@
 #include <chrono>
 #include <corio/detail/context.h>
 #include <corio/detail/poller.h>
+#include <corio/detail/thread_pool.h>
 #include <corio/task.h>
 #include <coroutine>
 #include <cstdint>
@@ -73,6 +74,16 @@ class IoContext {
   /// @brief Route an exception to the installed error handler, or log it to
   ///        stderr when no handler is installed. Never throws.
   void report_error(const std::exception_ptr& error) noexcept;
+
+  /// @brief Install a custom thread pool for to_thread() on this context.
+  ///        Replaces the default RawThreadPool. Must be called from the
+  ///        owning thread, before any to_thread() call that should observe
+  ///        the new pool.
+  void set_thread_pool(std::shared_ptr<detail::ThreadPool> pool) noexcept;
+
+  /// @brief The thread pool to_thread() submits jobs to on this context.
+  ///        Defaults to a pool that spawns one raw std::thread per job.
+  [[nodiscard]] const std::shared_ptr<detail::ThreadPool>& thread_pool() const noexcept;
 
   /// @brief Register handle to be posted when fd becomes readable.
   ///        Must be called from the owning thread.
@@ -152,6 +163,7 @@ class IoContext {
   std::unordered_map<std::uint64_t, HandleWithCtx> active_timers_;
   std::uint64_t next_timer_id_{0};
   std::function<void(std::exception_ptr)> error_handler_;
+  std::shared_ptr<detail::ThreadPool> thread_pool_;
   std::atomic<bool> stopped_{false};
   std::thread::id owner_thread_;
 

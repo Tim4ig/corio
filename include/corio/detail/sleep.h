@@ -56,7 +56,7 @@ class SleepAwaitable {
  private:
   std::chrono::nanoseconds duration_;
   IoContext* ctx_{nullptr};
-  std::coroutine_handle<> handle_{};
+  std::coroutine_handle<> handle_;
   std::uint64_t id_{0};
   bool armed_{false};
 };
