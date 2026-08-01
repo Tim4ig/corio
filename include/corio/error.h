@@ -7,6 +7,26 @@ namespace corio {
 
 /// Abstract base for all corio exceptions. Catch this to handle any error
 /// originating from the corio runtime without caring about the specific kind.
+///
+/// Deliberately does NOT inherit std::exception. LogicError/SystemError/
+/// InternalError each multiply-inherit Error plus the matching std
+/// exception type (std::logic_error/system_error/runtime_error), and the
+/// std types already inherit std::exception non-virtually. Giving Error an
+/// std::exception base too would force virtual inheritance on Error's side
+/// while the std types stay non-virtual, producing two distinct
+/// std::exception subobjects and an ambiguous conversion to
+/// `const std::exception&` -- an unfixable diamond, since the standard
+/// mandates std::logic_error's inheritance be non-virtual. Keeping Error a
+/// pure interface sidesteps that; every leaf still ends up std::exception-
+/// derived through its std-exception base, so `catch (const std::exception&)`
+/// keeps working.
+///
+/// Contract for new exception types: derive from LogicError, SystemError,
+/// or InternalError (or add a sibling category following the same
+/// Error + std-exception pattern) -- never from Error directly. A type that
+/// only inherits Error would compile (what() is satisfied) but would not be
+/// std::exception-derived, silently escaping generic `catch (const
+/// std::exception&)` handlers elsewhere in a consuming application.
 class Error {
  public:
   virtual ~Error() = default;

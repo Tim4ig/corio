@@ -26,6 +26,7 @@ set(CORIO_TEST_SOURCES
     test_task.cc
     test_generator.cc
     test_gather.cc
+    test_race.cc
     test_timer.cc
     test_io_context.cc
     test_cancellation.cc
@@ -33,6 +34,7 @@ set(CORIO_TEST_SOURCES
     test_socket.cc
     test_spawn.cc
     test_lifetime.cc
+    test_to_thread.cc
 )
 
 add_executable(corio_tests ${CORIO_TEST_SOURCES})

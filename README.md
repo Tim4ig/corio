@@ -6,7 +6,9 @@ CorIO is a small C++ coroutine runtime for Linux. It provides the low-level piec
 - `Task<T>` coroutine results
 - `spawn()` for detached, self-owning tasks with exception routing
 - `Generator<T>` async sequences
-- `gather()` for concurrent task composition
+- `gather()` for concurrent task composition (wait for all)
+- `race()` for first-to-complete task composition (timeouts)
+- `to_thread()` for off-loading blocking calls to a thread pool
 - `async_sleep()` backed by a deadline heap (no fd or syscall per sleep)
 - cancellation tokens
 - task-local context variables
@@ -121,6 +123,64 @@ corio::Task<int> combined() {
 ```
 
 If one child throws, `gather()` waits for all children and rethrows the first captured exception.
+
+`race()` schedules all tasks and resumes as soon as the first one finishes, by value or exception. The result is a `std::variant` tagged by argument position; every task still in flight is abandoned (its coroutine is destroyed while suspended). This is the composition primitive for per-operation timeouts:
+
+```cpp
+#include <corio/race.h>
+#include <corio/task.h>
+#include <corio/timer.h>
+
+#include <chrono>
+
+using namespace std::chrono_literals;
+
+corio::Task<> deadline(std::chrono::milliseconds dur) {
+  co_await corio::async_sleep(dur);
+}
+
+corio::Task<> with_timeout(corio::Task<int> op) {
+  auto outcome = co_await corio::race(std::move(op), deadline(5s));
+  if (outcome.index() == 1) {
+    // timed out; op's coroutine was abandoned and its interest (I/O watch,
+    // timer, cancellation registration, ...) deregistered by its own
+    // awaitable destructors.
+  }
+}
+```
+
+Abandoning a losing task is only safe to the extent every awaitable it suspends on follows corio's cancel-on-destroy contract (see I/O Integration below) -- true for `async_sleep`, `CancellationToken::wait()`, `to_thread()`, and any I/O awaitable built the way this README recommends.
+
+## Blocking Calls
+
+`to_thread()` runs a nullary callable on a thread pool and resumes the caller with its result, without blocking the `IoContext`. The default pool (`RawThreadPool`) spawns one raw, detached `std::thread` per call -- no reuse, no bound on concurrency, just enough to keep an occasional blocking call (a sync DB driver, a legacy API) off the reactor thread.
+
+```cpp
+#include <corio/task.h>
+#include <corio/to_thread.h>
+
+corio::Task<std::string> hash_file(std::string path) {
+  co_return co_await corio::to_thread([path = std::move(path)] {
+    return expensive_blocking_hash(path); // runs off the IoContext thread
+  });
+}
+```
+
+Install a real pool by implementing `corio::detail::ThreadPool` (a single `submit(std::function<void()>)`) and calling `ctx.set_thread_pool(pool)` before any `to_thread()` call that should observe it:
+
+```cpp
+class MyPool : public corio::detail::ThreadPool {
+ public:
+  void submit(std::function<void()> job) override {
+    // enqueue job on a bounded worker pool instead of spawning a thread
+  }
+};
+
+auto ctx = corio::make_io_context();
+ctx.set_thread_pool(std::make_shared<MyPool>());
+```
+
+An exception thrown by the callable is rethrown at the `co_await` point, on the `IoContext` thread. If the awaiting coroutine is abandoned (e.g. it lost a `race()`) before the job finishes, the job detects this and drops its resume instead of touching the destroyed frame; the pool itself has no way to interrupt a callable already running.
 
 ## Cancellation
 

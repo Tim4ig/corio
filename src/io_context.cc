@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <corio/detail/platform.h>
+#include <corio/detail/raw_thread_pool.h>
 #include <corio/error.h>
 #include <corio/io_context.h>
 #include <exception>
@@ -79,6 +80,7 @@ DetachedTask run_detached(IoContext* ctx, Task<> task) {
 
 IoContext::IoContext(std::unique_ptr<Poller> poller)
   : poller_(std::move(poller))
+  , thread_pool_(std::make_shared<detail::RawThreadPool>())
   , owner_thread_(std::this_thread::get_id()) {
 }
 
@@ -134,6 +136,14 @@ void IoContext::spawn(Task<> task) {
 void IoContext::set_error_handler(std::function<void(std::exception_ptr)> handler) {
   check_thread();
   error_handler_ = std::move(handler);
+}
+
+void IoContext::set_thread_pool(std::shared_ptr<detail::ThreadPool> pool) noexcept {
+  thread_pool_ = std::move(pool);
+}
+
+const std::shared_ptr<detail::ThreadPool>& IoContext::thread_pool() const noexcept {
+  return thread_pool_;
 }
 
 void IoContext::report_error(const std::exception_ptr& error) noexcept {

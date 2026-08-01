@@ -24,14 +24,19 @@ set(CORIO_SOURCES
     include/corio/gather.h
     include/corio/generator.h
     include/corio/io_context.h
+    include/corio/race.h
     include/corio/task.h
     include/corio/timer.h
+    include/corio/to_thread.h
     include/corio/detail/context.h
     include/corio/detail/platform.h
     include/corio/detail/poller.h
+    include/corio/detail/raw_thread_pool.h
     include/corio/detail/sleep.h
+    include/corio/detail/thread_pool.h
     include/corio/detail/token.h
     include/corio/detail/types.h
+    include/corio/detail/void_result.h
     include/corio/detail/linux/io_uring.h
 )
 
